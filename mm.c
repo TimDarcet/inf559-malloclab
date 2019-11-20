@@ -89,7 +89,7 @@ int is_allocated(void *p)
     return *(size_t *)p & 1;
 }
 
-void coalesce(void *p)
+void coalesce_next(void *p)
 {
     // Coalesce block pointed to by p with next block, if it is free
     int *n = NEXT_BLOCK(p);
@@ -97,12 +97,20 @@ void coalesce(void *p)
     {
         *(size_t *)p += GET_BLOCK_LENGTH(n);
     }
+}
 
+void coalesce_prev(void *p)
+{
     int *previous;
     for (previous = mem_heap_lo(); NEXT_BLOCK(previous) < p; previous = NEXT_BLOCK(previous));
 
     if (previous != p && !is_allocated(previous))
         *(size_t *)p += GET_BLOCK_LENGTH(p);
+}
+
+void coalesce(void *p){
+    coalesce_prev(p);
+    coalesce_next(p);
 }
 
 /* 
@@ -116,9 +124,7 @@ void *mm_malloc(size_t size)
 
     int *p = mem_heap_lo();
     int *end = mem_heap_hi();
-    while ((p < end) &&        // not passed end
-           (is_allocated(p) || // already allocated
-            (*p <= newsize)))  // too small
+    while ((p < end) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize)))
         p = NEXT_BLOCK(p);     // goto next block (word addressed)
 
     if (p + newsize >= end)
