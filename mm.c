@@ -91,6 +91,7 @@ int is_allocated(void *p)
 
 void coalesce(void *p)
 {
+    // Coalesce block pointed to by p with next block, if it is free
     int *n = NEXT_BLOCK(p);
     if (!is_allocated(n))
     {
