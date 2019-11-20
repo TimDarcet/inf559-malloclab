@@ -220,6 +220,9 @@ void *mm_realloc(void *ptr, size_t size)
 #endif
 #ifdef DOUBLY_LINKED_IMPLICIT
 
+/*
+ * coalesce_next - Coalesce block pointed to by p with next block, if it is free
+ */
 void coalesce_next(void *p)
 {
     void *n = NEXT_BLOCK(p);
@@ -231,6 +234,9 @@ void coalesce_next(void *p)
     }
 }
 
+/*
+ * coalesce_prev - Coalesce block pointed to by p with previous block, if it is free
+ */
 void coalesce_prev(void *p)
 {
     void *prev = PREV_BLOCK(p);
@@ -241,6 +247,9 @@ void coalesce_prev(void *p)
     }
 }
 
+/*
+ * coalesce - Coalesce block pointed to by p with next and previous block, if they are free
+ */
 void coalesce(void *p){
     coalesce_next(p);
     coalesce_prev(p);
