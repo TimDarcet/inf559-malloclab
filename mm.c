@@ -41,8 +41,9 @@ team_t team = {
 /* rounds up to the nearest multiple of ALIGNMENT */
 #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
 
-
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
+
+#define NEXT_BLOCK(ptr) (void *)((char *)ptr + SIZE_T_SIZE + *(size_t *)ptr)
 
 /* 
  * mm_init - initialize the malloc package.
@@ -82,6 +83,12 @@ void mm_free(void *ptr)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
+    void *old_block = (char *)ptr - SIZE_T_SIZE;
+    size_t old_size = *(size_t *)old_block;
+    if (old_size >= size) {
+        *(size_t *)old_block = size;
+
+    }
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
