@@ -124,9 +124,7 @@ void *mm_malloc(size_t size)
 
     int *p = mem_heap_lo();
     int *end = mem_heap_hi();
-    while ((p < end) &&        // not passed end
-           (is_allocated(p) || // already allocated
-            (*p <= newsize)))  // too small
+    while ((p < end) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize)))
         p = NEXT_BLOCK(p);     // goto next block (word addressed)
 
     if (p + newsize >= end)
