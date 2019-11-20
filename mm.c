@@ -70,27 +70,6 @@ int mm_init(void)
     return 0;
 }
 
-void increase_heap_size()
-{
-    int *p = mem_heap_lo();
-    int *end = mem_heap_hi();
-    int used_space = 0;
-
-    printf("Increasing heapsize to %d\n", 2 * mem_heapsize());
-
-    // Go to end
-    while (p < end)
-    {
-        used_space += GET_BLOCK_LENGTH(p);
-        p = NEXT_BLOCK(p); // goto next block (word addressed)
-    }
-
-    // Increase
-    mem_sbrk(mem_heapsize());
-
-    *p = mem_heapsize() - used_space;
-}
-
 int is_allocated(void *p)
 {
     return *(size_t *)p & 1;
@@ -120,31 +99,49 @@ void coalesce(void *p){
     coalesce_next(p);
 }
 
+void increase_heap_size()
+{
+    printf("Increasing heapsize to %d\n", 2 * mem_heapsize());
+
+    // Increase
+    int *p = mem_sbrk(mem_heapsize());
+
+    coalesce(p);
+}
+
 /* 
  * mm_malloc - Allocate a block by incrementing the brk pointer.
  *     Always allocate a block whose size is a multiple of the alignment.
  */
-void *mm_malloc(size_t size)
+void *mm_malloc(size_t user_size)
 {
-    size_t newsize = ALIGN(size + SIZE_T_SIZE);
+    size_t newsize = ALIGN(user_size + SIZE_T_SIZE);
     size_t tag = newsize | 1; // the block is allocated
 
     int *p = mem_heap_lo();
-    int *end = mem_heap_hi();
-    while ((p < end) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize)))
+    int *end_p = mem_heap_hi();
+    while ((p < end_p) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize)))
         p = NEXT_BLOCK(p);     // goto next block (word addressed)
 
-    if (p + newsize >= end)
+    if (p + newsize >= end_p)
     {
         increase_heap_size();
-        return mm_malloc(size);
+        // TODO pas de recursif
+        return mm_malloc(user_size);
     }
 
     if (p == (void *)-1)
         return NULL;
     else
     {
+        size_t old_size = GET_BLOCK_LENGTH(p);
         *(size_t *)p = tag;
+
+        if (old_size != newsize) {
+            int *next_p = NEXT_BLOCK(p);
+            *(size_t *)next_p = (old_size - newsize) | 1;
+        }
+
         return (void *)((char *)p + SIZE_T_SIZE);
     }
 }
