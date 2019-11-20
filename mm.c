@@ -169,7 +169,7 @@ void *mm_realloc(void *ptr, size_t size)
         void *true_newnext_block = NEXT_BLOCK(true_old_block);  // 'newfree' variables correspond to the free block which has just been created
         size_t true_newnext_size = true_old_size - true_new_size;
         *(size_t *)true_newnext_block = true_newnext_size;  // The 'allocated' bit is purposefully not set
-        coalesce(true_newnext_block);
+        coalesce_next(true_newnext_block);
         return usr_old_block;
     }
     void *true_oldnext_block = NEXT_BLOCK(true_old_block);
