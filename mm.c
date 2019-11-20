@@ -63,27 +63,6 @@ int mm_init(void)
     return 0;
 }
 
-void increase_heap_size()
-{
-    int *p = mem_heap_lo();
-    int *end_p = mem_heap_hi();
-    int used_space = 0;
-
-    printf("Increasing heapsize to %d\n", 2 * mem_heapsize());
-
-    // Go to end_p
-    while (p < end_p)
-    {
-        used_space += GET_BLOCK_LENGTH(p);
-        p = NEXT_BLOCK(p); // goto next block (word addressed)
-    }
-
-    // Increase
-    mem_sbrk(mem_heapsize());
-
-    *p = mem_heapsize() - used_space;
-}
-
 int is_allocated(void *p)
 {
     return *(size_t *)p & 1;
@@ -111,6 +90,16 @@ void coalesce_prev(void *p)
 void coalesce(void *p){
     coalesce_prev(p);
     coalesce_next(p);
+}
+
+void increase_heap_size()
+{
+    printf("Increasing heapsize to %d\n", 2 * mem_heapsize());
+
+    // Increase
+    int *p = mem_sbrk(mem_heapsize());
+
+    coalesce(p);
 }
 
 /* 
