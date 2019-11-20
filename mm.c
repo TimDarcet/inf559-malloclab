@@ -73,6 +73,8 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
+    int *p = (int*) ptr;
+    *p = *p & -2;
 }
 
 /*
@@ -94,17 +96,3 @@ void *mm_realloc(void *ptr, size_t size)
     mm_free(oldptr);
     return newptr;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
