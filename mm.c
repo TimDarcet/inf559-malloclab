@@ -131,7 +131,7 @@ void *mm_malloc(size_t size)
 }
 
 /*
- * mm_free - Freeing a block does nothing.
+ * mm_free - 
  */
 void mm_free(void *ptr)
 {
@@ -146,7 +146,7 @@ void mm_free(void *ptr)
 }
 
 /*
- * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
+ * mm_realloc - 
  */
 void *mm_realloc(void *ptr, size_t size)
 {
