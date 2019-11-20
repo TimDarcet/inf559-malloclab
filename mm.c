@@ -36,8 +36,8 @@ team_t team = {
 };
 
 
-#define SIMPLY_LINKED_IMPLICIT
-
+// #define SIMPLY_LINKED_IMPLICIT
+#define DOUBLY_LINKED_IMPLICIT
 
 
 
@@ -50,7 +50,11 @@ team_t team = {
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
 #define GET_BLOCK_LENGTH(ptr) (*(size_t *)ptr & -2)
-#define NEXT_BLOCK(ptr) (void *)((char *)ptr + GET_BLOCK_LENGTH(ptr))
+#define GET_PREV_TAG(ptr) ((size_t *)((char *)ptr - SIZE_T_SIZE))
+#define GET_PREV_BLOCK_LENGTH(ptr) (*(GET_PREV_TAG(ptr)) & -2)
+#define NEXT_BLOCK(ptr) ((void *)((char *)ptr + GET_BLOCK_LENGTH(ptr)))
+#define PREV_BLOCK(ptr) ((void *)((char *)ptr - (GET_PREV_BLOCK_LENGTH(ptr))))
+
 
 #ifdef SIMPLY_LINKED_IMPLICIT
 /* 
@@ -212,5 +216,33 @@ void *mm_realloc(void *ptr, size_t size)
     memcpy(u_new_p, u_old_p, u_copy_size);
     mm_free(u_old_p);
     return u_new_p;
+}
+#endif
+#ifdef DOUBLY_LINKED_IMPLICIT
+
+void coalesce_next(void *p)
+{
+    void *n = NEXT_BLOCK(p);
+    if (!is_allocated(n))
+    {
+        size_t old_size = GET_BLOCK_LENGTH(p);
+        *(size_t *)p += GET_BLOCK_LENGTH(n);
+        *GET_PREV_TAG(NEXT_BLOCK(p)) += old_size;
+    }
+}
+
+void coalesce_prev(void *p)
+{
+    void *prev = PREV_BLOCK(p);
+    if (!is_allocated(prev))
+    {
+        *GET_PREV_TAG(NEXT_BLOCK(p)) += GET_BLOCK_LENGTH(prev);
+        *(size_t *)prev += GET_BLOCK_LENGTH(p);
+    }
+}
+
+void coalesce(void *p){
+    coalesce_next(p);
+    coalesce_prev(p);
 }
 #endif
