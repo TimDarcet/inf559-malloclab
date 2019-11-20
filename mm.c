@@ -35,6 +35,12 @@ team_t team = {
     "hadrien.renaud@polytechnique.edu"
 };
 
+
+#define SIMPLY_LINKED_IMPLICIT
+
+
+
+
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
 
@@ -46,6 +52,7 @@ team_t team = {
 #define GET_BLOCK_LENGTH(ptr) (*(size_t *)ptr & -2)
 #define NEXT_BLOCK(ptr) (void *)((char *)ptr + GET_BLOCK_LENGTH(ptr))
 
+#ifdef SIMPLY_LINKED_IMPLICIT
 /* 
  * mm_init - initialize the malloc package.
  */
@@ -209,3 +216,4 @@ void *mm_realloc(void *ptr, size_t size)
     mm_free(u_old_p);
     return u_new_p;
 }
+#endif
