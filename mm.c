@@ -35,6 +35,12 @@ team_t team = {
     "hadrien.renaud@polytechnique.edu"
 };
 
+
+#define SIMPLY_LINKED_IMPLICIT
+
+
+
+
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
 
@@ -46,6 +52,7 @@ team_t team = {
 #define GET_BLOCK_LENGTH(ptr) (*(size_t *)ptr & -2)
 #define NEXT_BLOCK(ptr) (void *)((char *)ptr + GET_BLOCK_LENGTH(ptr))
 
+#ifdef SIMPLY_LINKED_IMPLICIT
 /* 
  * mm_init - initialize the malloc package.
  */
@@ -163,54 +170,57 @@ void mm_free(void *ptr)
 /*
  * mm_realloc - realloc using implicit simply linked list.
  * Use the free space at old pointer if possible, else do a new malloc/copy/free
- * usr_* variables denote things that are as seen by the user:
+ * u_* variables denote things that are as seen by the user:
  *    sizes are payload sizes
  *    pointer are pyload start pointers
- * true_* variables denote things that are as they are in memory:
+ * variables with no 'u_' prefix denote things that are as they are in memory:
  *    sizes are actual block sizes
  *    pointers are block start pointers
+ * *_p variables are pointers to blocks
+ * *_size variables are size variables
  */
 void *mm_realloc(void *ptr, size_t size)
 {
 
-    size_t usr_new_size = size; // usr_size is the size as seen by the usr of the mm.c functions
-    size_t true_new_size = ALIGN(size + SIZE_T_SIZE); // true size is the actual memory space used to store the payload
-    void *usr_old_block = ptr; // usr_old_block is the adress of the old block as seen by the user, i.e. the address of the payload
-    void *true_old_block = (char *)ptr - SIZE_T_SIZE; // true_old_block is the address at which the old block actually starts, i.e. the address of the boundary tag
-    size_t true_old_size = GET_BLOCK_LENGTH(true_old_block);
+    size_t u_new_size = size;
+    size_t new_size = ALIGN(size + SIZE_T_SIZE);
+    void *u_old_p = ptr;
+    void *old_p = (char *)ptr - SIZE_T_SIZE;
+    size_t old_size = GET_BLOCK_LENGTH(old_p);
     
     // If there is enough space in the old block, just create a new free block after it
-    if (true_old_size >= true_new_size) {
-        *(size_t *)true_old_block = true_new_size;
-        void *true_newnext_block = NEXT_BLOCK(true_old_block);  // 'newfree' variables correspond to the free block which has just been created
-        size_t true_newnext_size = true_old_size - true_new_size;
-        *(size_t *)true_newnext_block = true_newnext_size;  // The 'allocated' bit is purposefully not set
-        coalesce_next(true_newnext_block);
-        return usr_old_block;
+    if (old_size >= new_size) {
+        *(size_t *)old_p = new_size;
+        void *newnext_p = NEXT_BLOCK(old_p);  // 'newnext' variables correspond to the free block which has just been created
+        size_t newnext_size = old_size - new_size;
+        *(size_t *)newnext_p = newnext_size;  // The 'allocated' bit is purposefully not set
+        coalesce_next(newnext_p);
+        return u_old_p;
     }
-    void *true_oldnext_block = NEXT_BLOCK(true_old_block);
-    size_t true_oldnext_size = GET_BLOCK_LENGTH(true_oldnext_block);
+    void *oldnext_p = NEXT_BLOCK(old_p);
+    size_t oldnext_size = GET_BLOCK_LENGTH(oldnext_p);
     
     // If there is enough space in the old block + the next free block, use it 
-    if (!(*(size_t *)true_oldnext_block & 1) && true_oldnext_size + true_old_size >= true_new_size) {
-        *(size_t *)true_old_block = true_new_size;
-        void *true_newnext_block = NEXT_BLOCK(true_old_block);  // 'newfree' variables correspond to the free block which has just been created
-        size_t true_newnext_size = true_old_size + true_oldnext_size - true_new_size;
-        *(size_t *)true_newnext_block = true_newnext_size;  // The 'allocated' bit is purposefully not set
-        return usr_old_block;
+    if (!(*(size_t *)oldnext_p & 1) && oldnext_size + old_size >= new_size) {
+        *(size_t *)old_p = new_size;
+        void *newnext_p = NEXT_BLOCK(old_p);
+        size_t newnext_size = old_size + oldnext_size - new_size;
+        *(size_t *)newnext_p = newnext_size;
+        return u_old_p;
     }
 
     // There is not enough space, malloc a new block, copy between the two and free the old block
-    void *usr_new_block = mm_malloc(usr_new_size);
-    if (usr_new_block == NULL)
+    void *u_new_p = mm_malloc(u_new_size);
+    if (u_new_p == NULL)
         return NULL;
-    size_t usr_old_size = true_old_size - SIZE_T_SIZE;
-    size_t usr_copy_size;
-    if (usr_new_size < usr_new_size)
-        usr_copy_size = usr_new_size;
+    size_t u_old_size = old_size - SIZE_T_SIZE;
+    size_t u_copy_size;
+    if (u_new_size < u_new_size)
+        u_copy_size = u_new_size;
     else
-        usr_copy_size = usr_old_size;
-    memcpy(usr_new_block, usr_old_block, usr_copy_size);
-    mm_free(usr_old_block);
-    return usr_new_block;
+        u_copy_size = u_old_size;
+    memcpy(u_new_p, u_old_p, u_copy_size);
+    mm_free(u_old_p);
+    return u_new_p;
 }
+#endif
