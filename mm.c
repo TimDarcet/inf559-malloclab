@@ -66,13 +66,13 @@ int mm_init(void)
 void increase_heap_size()
 {
     int *p = mem_heap_lo();
-    int *end = mem_heap_hi();
+    int *end_p = mem_heap_hi();
     int used_space = 0;
 
     printf("Increasing heapsize to %d\n", 2 * mem_heapsize());
 
-    // Go to end
-    while (p < end)
+    // Go to end_p
+    while (p < end_p)
     {
         used_space += GET_BLOCK_LENGTH(p);
         p = NEXT_BLOCK(p); // goto next block (word addressed)
@@ -123,11 +123,11 @@ void *mm_malloc(size_t user_size)
     size_t tag = newsize | 1; // the block is allocated
 
     int *p = mem_heap_lo();
-    int *end = mem_heap_hi();
-    while ((p < end) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize)))
+    int *end_p = mem_heap_hi();
+    while ((p < end_p) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize)))
         p = NEXT_BLOCK(p);     // goto next block (word addressed)
 
-    if (p + newsize >= end)
+    if (p + newsize >= end_p)
     {
         increase_heap_size();
         // TODO pas de recursif
