@@ -43,14 +43,59 @@ team_t team = {
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
 
-#define NEXT_BLOCK(ptr) (void *)((char *)ptr + SIZE_T_SIZE + *(size_t *)ptr)
+#define GET_BLOCK_LENGTH(ptr) (*(size_t *)ptr & -2)
+#define NEXT_BLOCK(ptr) (void *)((char *)ptr + GET_BLOCK_LENGTH(ptr))
 
 /* 
  * mm_init - initialize the malloc package.
  */
 int mm_init(void)
 {
+    int *p = mem_heap_lo();
+
+    if (mem_heapsize() < 256)
+    {
+        mem_sbrk(ALIGN(256 - mem_heapsize()));
+    }
+
+    *(size_t *)p = mem_heapsize();
+
     return 0;
+}
+
+void increase_heap_size()
+{
+    int *p = mem_heap_lo();
+    int *end = mem_heap_hi();
+    int used_space = 0;
+
+    printf("Increasing heapsize to %d\n", 2 * mem_heapsize());
+
+    // Go to end
+    while (p < end)
+    {
+        used_space += GET_BLOCK_LENGTH(p);
+        p = NEXT_BLOCK(p); // goto next block (word addressed)
+    }
+
+    // Increase
+    mem_sbrk(mem_heapsize());
+
+    *p = mem_heapsize() - used_space;
+}
+
+int is_allocated(void *p)
+{
+    return *(size_t *)p & 1;
+}
+
+void coalesce(void *p)
+{
+    int *n = NEXT_BLOCK(p);
+    if (!is_allocated(n))
+    {
+        *(size_t *)p += GET_BLOCK_LENGTH(n);
+    }
 }
 
 /* 
@@ -59,12 +104,27 @@ int mm_init(void)
  */
 void *mm_malloc(size_t size)
 {
-    int newsize = ALIGN(size + SIZE_T_SIZE);
-    void *p = mem_sbrk(newsize);
+    size_t newsize = ALIGN(size + SIZE_T_SIZE);
+    size_t tag = newsize | 1; // the block is allocated
+
+    int *p = mem_heap_lo();
+    int *end = mem_heap_hi();
+    while ((p < end) &&        // not passed end
+           (is_allocated(p) || // already allocated
+            (*p <= newsize)))  // too small
+        p = NEXT_BLOCK(p);     // goto next block (word addressed)
+
+    if (p + newsize >= end)
+    {
+        increase_heap_size();
+        return mm_malloc(size);
+    }
+
     if (p == (void *)-1)
-	return NULL;
-    else {
-        *(size_t *)p = size;
+        return NULL;
+    else
+    {
+        *(size_t *)p = tag;
         return (void *)((char *)p + SIZE_T_SIZE);
     }
 }
@@ -74,8 +134,14 @@ void *mm_malloc(size_t size)
  */
 void mm_free(void *ptr)
 {
-    int *p = (int*) ptr;
+    int *p = (int *)ptr;
     *p = *p & -2;
+
+    int *n = NEXT_BLOCK(p);
+    if ((*n & 1))
+    {
+        *p += GET_BLOCK_LENGTH(n);
+    }
 }
 
 /*
