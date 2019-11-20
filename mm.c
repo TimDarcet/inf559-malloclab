@@ -91,6 +91,7 @@ int is_allocated(void *p)
 
 void coalesce_next(void *p)
 {
+    // Coalesce block pointed to by p with next block, if it is free
     int *n = NEXT_BLOCK(p);
     if (!is_allocated(n))
     {
@@ -144,7 +145,7 @@ void *mm_malloc(size_t size)
 }
 
 /*
- * mm_free - Freeing a block does nothing.
+ * mm_free - 
  */
 void mm_free(void *ptr)
 {
@@ -155,7 +156,7 @@ void mm_free(void *ptr)
 }
 
 /*
- * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
+ * mm_realloc - 
  */
 void *mm_realloc(void *ptr, size_t size)
 {
@@ -176,7 +177,7 @@ void *mm_realloc(void *ptr, size_t size)
         void *true_newnext_block = NEXT_BLOCK(true_old_block);  // 'newfree' variables correspond to the free block which has just been created
         size_t true_newnext_size = true_old_size - true_new_size;
         *(size_t *)true_newnext_block = true_newnext_size;  // The 'allocated' bit is purposefully not set
-        // TODO: Coalesce
+        coalesce_next(true_newnext_block);
         return usr_old_block;
     }
     void *true_oldnext_block = NEXT_BLOCK(true_old_block);
