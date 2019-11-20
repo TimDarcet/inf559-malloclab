@@ -149,23 +149,47 @@ void mm_free(void *ptr)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
-    void *old_block = (char *)ptr - SIZE_T_SIZE;
-    size_t old_size = *(size_t *)old_block;
-    if (old_size >= size) {
-        *(size_t *)old_block = size;
-
+    // usr_* variables denote things that are as seen by the user:
+    //   sizes are payload sizes
+    //   pointer are pyload start pointers
+    // true_* variables denote things that are as they are in memory:
+    //   sizes are actual block sizes
+    //   pointers are block start pointers
+    size_t usr_new_size = size; // usr_size is the size as seen by the usr of the mm.c functions
+    size_t true_new_size = ALIGN(size + SIZE_T_SIZE); // true size is the actual memory space used to store the payload
+    void *usr_old_block = ptr; // usr_old_block is the adress of the old block as seen by the user, i.e. the address of the payload
+    void *true_old_block = (char *)ptr - SIZE_T_SIZE; // true_old_block is the address at which the old block actually starts, i.e. the address of the boundary tag
+    size_t true_old_size = GET_BLOCK_LENGTH(true_old_block);
+    if (true_old_size >= true_new_size) {
+        // There is enough space in the old block
+        *(size_t *)true_old_block = true_new_size;
+        void *true_newnext_block = NEXT_BLOCK(true_old_block);  // 'newfree' variables correspond to the free block which has just been created
+        size_t true_newnext_size = true_old_size - true_new_size;
+        *(size_t *)true_newnext_block = true_newnext_size;  // The 'allocated' bit is purposefully not set
+        // TODO: Coalesce
+        return usr_old_block;
     }
-    void *oldptr = ptr;
-    void *newptr;
-    size_t copySize;
-    
-    newptr = mm_malloc(size);
-    if (newptr == NULL)
-      return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-    if (size < copySize)
-      copySize = size;
-    memcpy(newptr, oldptr, copySize);
-    mm_free(oldptr);
-    return newptr;
+    void *true_oldnext_block = NEXT_BLOCK(true_old_block);
+    size_t true_oldnext_size = GET_BLOCK_LENGTH(true_oldnext_block);
+    if (!(*(size_t *)true_oldnext_block & 1) && true_oldnext_size + true_old_size >= true_new_size) {
+        // There is enough space in the old block + the next free block 
+        *(size_t *)true_old_block = true_new_size;
+        void *true_newnext_block = NEXT_BLOCK(true_old_block);  // 'newfree' variables correspond to the free block which has just been created
+        size_t true_newnext_size = true_old_size + true_oldnext_size - true_new_size;
+        *(size_t *)true_newnext_block = true_newnext_size;  // The 'allocated' bit is purposefully not set
+        return usr_old_block;
+    }
+    // There is not enough space, malloc a new block, copy between the two and free the old block
+    void *usr_new_block = mm_malloc(usr_new_size);
+    if (usr_new_block == NULL)
+        return NULL;
+    size_t usr_old_size = true_old_size - SIZE_T_SIZE;
+    size_t usr_copy_size;
+    if (usr_new_size < usr_new_size)
+        usr_copy_size = usr_new_size;
+    else
+        usr_copy_size = usr_old_size;
+    memcpy(usr_new_block, usr_old_block, usr_copy_size);
+    mm_free(usr_old_block);
+    return usr_new_block;
 }
