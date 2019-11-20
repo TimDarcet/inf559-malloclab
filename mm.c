@@ -59,6 +59,7 @@ int mm_init(void)
     }
 
     *(size_t *)p = mem_heapsize();
+    printf("Setting first block %x to length %d\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
 
     return 0;
 }
@@ -88,8 +89,8 @@ void coalesce_prev(void *p)
 }
 
 void coalesce(void *p){
-    coalesce_prev(p);
     coalesce_next(p);
+    coalesce_prev(p);
 }
 
 void increase_heap_size(size_t size)
@@ -113,20 +114,20 @@ void *mm_malloc(size_t user_size)
     size_t newsize = ALIGN(user_size + SIZE_T_SIZE);
     size_t tag = newsize | 1; // the block is allocated
 
-    printf("Malloc %d\n", user_size);
+    printf("User want to malloc %d...\n", user_size);
 
     int *p = mem_heap_lo();
     int *end_p = mem_heap_hi();
-    while ((p < end_p) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize)))
+    while ((p < end_p) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize))) {
+        printf("Seeing block %x with length %d (allocated: %d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), is_allocated(p));
         p = NEXT_BLOCK(p);     // goto next block (word addressed)
+    }
 
     if (p + newsize >= end_p)
     {
         increase_heap_size(2 * newsize);
         return mm_malloc(user_size);
     }
-
-    printf("Allocating pointer\n");
 
     if (p == (void *)-1)
         return NULL;
@@ -139,6 +140,8 @@ void *mm_malloc(size_t user_size)
             int *next_p = NEXT_BLOCK(p);
             *(size_t *)next_p = (old_size - newsize) | 1;
         }
+        
+        printf("Malloc %d to %x\n", user_size, (unsigned int)p);
 
         return (void *)((char *)p + SIZE_T_SIZE);
     }
@@ -151,6 +154,8 @@ void mm_free(void *ptr)
 {
     int *p = (int *)ptr;
     *p = *p & -2;
+
+    printf("Freeing %d at %x\n", GET_BLOCK_LENGTH(p), (unsigned int)ptr);
 
     coalesce(p);
 }
