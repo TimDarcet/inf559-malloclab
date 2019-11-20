@@ -117,9 +117,9 @@ void coalesce(void *p){
  * mm_malloc - Allocate a block by incrementing the brk pointer.
  *     Always allocate a block whose size is a multiple of the alignment.
  */
-void *mm_malloc(size_t size)
+void *mm_malloc(size_t user_size)
 {
-    size_t newsize = ALIGN(size + SIZE_T_SIZE);
+    size_t newsize = ALIGN(user_size + SIZE_T_SIZE);
     size_t tag = newsize | 1; // the block is allocated
 
     int *p = mem_heap_lo();
@@ -130,14 +130,22 @@ void *mm_malloc(size_t size)
     if (p + newsize >= end)
     {
         increase_heap_size();
-        return mm_malloc(size);
+        // TODO pas de recursif
+        return mm_malloc(user_size);
     }
 
     if (p == (void *)-1)
         return NULL;
     else
     {
+        size_t old_size = GET_BLOCK_LENGTH(p);
         *(size_t *)p = tag;
+
+        if (old_size != newsize) {
+            int *next_p = NEXT_BLOCK(p);
+            *(size_t *)next_p = (old_size - newsize) | 1;
+        }
+
         return (void *)((char *)p + SIZE_T_SIZE);
     }
 }
