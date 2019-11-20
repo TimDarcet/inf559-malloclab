@@ -92,12 +92,14 @@ void coalesce(void *p){
     coalesce_next(p);
 }
 
-void increase_heap_size()
+void increase_heap_size(size_t size)
 {
-    printf("Increasing heapsize to %d\n", 2 * mem_heapsize());
+    size = ALIGN(size);
+    printf("Increasing heapsize to %d\n", size + mem_heapsize());
 
     // Increase
-    int *p = mem_sbrk(mem_heapsize());
+    int *p = mem_sbrk(size);
+    *(size_t *)p = size;
 
     coalesce(p);
 }
@@ -111,6 +113,8 @@ void *mm_malloc(size_t user_size)
     size_t newsize = ALIGN(user_size + SIZE_T_SIZE);
     size_t tag = newsize | 1; // the block is allocated
 
+    printf("Malloc %d\n", user_size);
+
     int *p = mem_heap_lo();
     int *end_p = mem_heap_hi();
     while ((p < end_p) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize)))
@@ -118,10 +122,11 @@ void *mm_malloc(size_t user_size)
 
     if (p + newsize >= end_p)
     {
-        increase_heap_size();
-        // TODO pas de recursif
+        increase_heap_size(2 * newsize);
         return mm_malloc(user_size);
     }
+
+    printf("Allocating pointer\n");
 
     if (p == (void *)-1)
         return NULL;
