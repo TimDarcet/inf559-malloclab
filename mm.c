@@ -97,6 +97,12 @@ void coalesce(void *p)
     {
         *(size_t *)p += GET_BLOCK_LENGTH(n);
     }
+
+    int *previous;
+    for (previous = mem_heap_lo(); NEXT_BLOCK(previous) < p; previous = NEXT_BLOCK(previous));
+
+    if (previous != p && !is_allocated(previous))
+        *(size_t *)p += GET_BLOCK_LENGTH(p);
 }
 
 /* 
@@ -138,11 +144,7 @@ void mm_free(void *ptr)
     int *p = (int *)ptr;
     *p = *p & -2;
 
-    int *n = NEXT_BLOCK(p);
-    if ((*n & 1))
-    {
-        *p += GET_BLOCK_LENGTH(n);
-    }
+    coalesce(p);
 }
 
 /*
