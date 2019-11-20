@@ -89,19 +89,27 @@ int is_allocated(void *p)
     return *(size_t *)p & 1;
 }
 
-void coalesce(void *p)
+void coalesce_next(void *p)
 {
     int *n = NEXT_BLOCK(p);
     if (!is_allocated(n))
     {
         *(size_t *)p += GET_BLOCK_LENGTH(n);
     }
+}
 
+void coalesce_prev(void *p)
+{
     int *previous;
     for (previous = mem_heap_lo(); NEXT_BLOCK(previous) < p; previous = NEXT_BLOCK(previous));
 
     if (previous != p && !is_allocated(previous))
         *(size_t *)p += GET_BLOCK_LENGTH(p);
+}
+
+void coalesce(void *p){
+    coalesce_prev(p);
+    coalesce_next(p);
 }
 
 /* 
