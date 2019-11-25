@@ -35,11 +35,10 @@ team_t team = {
     "hadrien.renaud@polytechnique.edu"
 };
 
+#define DEBUG 1
 
-// #define SIMPLY_LINKED_IMPLICIT
-#define DOUBLY_LINKED_IMPLICIT
-
-
+#define SIMPLY_LINKED_IMPLICIT
+// #define DOUBLY_LINKED_IMPLICIT
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
@@ -70,7 +69,9 @@ int mm_init(void)
     }
 
     *(size_t *)p = mem_heapsize();
-    printf("Setting first block %x to length %d\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
+
+    if (DEBUG)
+        printf("Setting first block %x to length %d\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
 
     return 0;
 }
@@ -84,22 +85,42 @@ void coalesce_next(void *p)
 {
     // Coalesce block pointed to by p with next block, if it is free
     int *n = NEXT_BLOCK(p);
-    if (!is_allocated(n))
+    if (!is_allocated(n) && n < mem_heap_hi())
     {
+        if (DEBUG)
+            printf("coalesce merge block %x(%d) with block %x(%d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), (unsigned int)n, GET_BLOCK_LENGTH(n));
+
         *(size_t *)p += GET_BLOCK_LENGTH(n);
     }
 }
 
 void coalesce_prev(void *p)
 {
-    int *previous;
-    for (previous = mem_heap_lo(); NEXT_BLOCK(previous) < p; previous = NEXT_BLOCK(previous));
+    int *previous = mem_heap_lo();
+    while (NEXT_BLOCK(previous) < p)
+    {
+        if (DEBUG)
+            printf("Coalesce see block %x with length %d (allocated: %d)\n", (unsigned int)previous, GET_BLOCK_LENGTH(previous), is_allocated(previous));
 
+        if (GET_BLOCK_LENGTH(previous) == 0)
+        {
+            if (DEBUG)
+                printf("Block with size 0 found\n");
+            break;
+        }
+        previous = NEXT_BLOCK(previous); // goto next block (word addressed)
+    }
+    // previous can be equal to p if p is mem_heap_lo, in this case we don't do anything
     if (previous != p && !is_allocated(previous))
-        *(size_t *)p += GET_BLOCK_LENGTH(p);
+    {
+        if (DEBUG)
+            printf("coalesce set size for block %x to %d\n", (unsigned int)previous, GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
+        *(size_t *)previous += GET_BLOCK_LENGTH(p);
+    }
 }
 
-void coalesce(void *p){
+void coalesce(void *p)
+{
     coalesce_next(p);
     coalesce_prev(p);
 }
@@ -107,13 +128,33 @@ void coalesce(void *p){
 void increase_heap_size(size_t size)
 {
     size = ALIGN(size);
-    printf("Increasing heapsize to %d\n", size + mem_heapsize());
+    if (DEBUG)
+        printf("Increasing heapsize to %d\n", size);
 
     // Increase
     int *p = mem_sbrk(size);
     *(size_t *)p = size;
 
+    if (DEBUG)
+        printf("Added block at %x(%d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
+
     coalesce(p);
+}
+
+void display_memory()
+{
+    int *p;
+    int *end_p = mem_heap_hi();
+
+    printf("\n**** DISPLAY MEMORY ****\n");
+    for (p = mem_heap_lo(); GET_BLOCK_LENGTH(p) != 0 && p < end_p; p = NEXT_BLOCK(p))
+    {
+        if (is_allocated(p))
+            printf("Block at %x:     allocated of size %d\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
+        else
+            printf("Block at %x: not allocated of size %d\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
+    }
+    printf("************************\n\n");
 }
 
 /* 
@@ -125,16 +166,22 @@ void *mm_malloc(size_t user_size)
     size_t newsize = ALIGN(user_size + SIZE_T_SIZE);
     size_t tag = newsize | 1; // the block is allocated
 
-    printf("User want to malloc %d...\n", user_size);
+    if (DEBUG)
+    {
+        display_memory();
+        printf("User want to malloc %d...\n", user_size);
+    }
 
     int *p = mem_heap_lo();
     int *end_p = mem_heap_hi();
-    while ((p < end_p) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize))) {
-        printf("Seeing block %x with length %d (allocated: %d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), is_allocated(p));
-        p = NEXT_BLOCK(p);     // goto next block (word addressed)
+    while ((p < end_p) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize)))
+    {
+        if (DEBUG)
+            printf("Seeing block %x with length %d (allocated: %d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), is_allocated(p));
+        p = NEXT_BLOCK(p); // goto next block (word addressed)
     }
 
-    if (p + newsize >= end_p)
+    if (newsize > GET_BLOCK_LENGTH(p) || p >= end_p)
     {
         increase_heap_size(2 * newsize);
         return mm_malloc(user_size);
@@ -147,12 +194,15 @@ void *mm_malloc(size_t user_size)
         size_t old_size = GET_BLOCK_LENGTH(p);
         *(size_t *)p = tag;
 
-        if (old_size != newsize) {
+        if (old_size != newsize)
+        {
             int *next_p = NEXT_BLOCK(p);
-            *(size_t *)next_p = (old_size - newsize) | 1;
+            // Set size to the rest of the block, and leave it unallocated
+            *(size_t *)next_p = ALIGN(old_size - newsize);
         }
-        
-        printf("Malloc %d to %x\n", user_size, (unsigned int)p);
+
+        if (DEBUG)
+            printf("Malloc %d to %x\n\n", user_size, (unsigned int)p);
 
         return (void *)((char *)p + SIZE_T_SIZE);
     }
@@ -163,12 +213,21 @@ void *mm_malloc(size_t user_size)
  */
 void mm_free(void *ptr)
 {
-    int *p = (int *)ptr;
+    if (DEBUG)
+        display_memory();
+
+    int *p = (int *)GET_PREV_TAG(ptr);
     *p = *p & -2;
 
-    printf("Freeing %d at %x\n", GET_BLOCK_LENGTH(p), (unsigned int)ptr);
+    int len_p = GET_BLOCK_LENGTH(p);
 
     coalesce(p);
+
+    if (DEBUG)
+    {
+        printf("Freeing %d at %x. The result:\n", len_p, (unsigned int)p);
+        display_memory();
+    }
 }
 
 /*
