@@ -35,7 +35,7 @@ team_t team = {
     "hadrien.renaud@polytechnique.edu"
 };
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define SIMPLY_LINKED_IMPLICIT
 // #define DOUBLY_LINKED_IMPLICIT
@@ -85,7 +85,8 @@ void coalesce_next(void *p)
 {
     // Coalesce block pointed to by p with next block, if it is free
     int *n = NEXT_BLOCK(p);
-    if (!is_allocated(n) && n < mem_heap_hi())
+    int *end_n = mem_heap_hi();
+    if (!is_allocated(n) && n < end_n)
     {
         if (DEBUG)
             printf("coalesce merge block %x(%d) with block %x(%d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), (unsigned int)n, GET_BLOCK_LENGTH(n));
