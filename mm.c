@@ -35,7 +35,7 @@ team_t team = {
     "hadrien.renaud@polytechnique.edu"
 };
 
-#define DEBUG 0
+#define DEBUG 1
 
 #define SIMPLY_LINKED_IMPLICIT
 // #define DOUBLY_LINKED_IMPLICIT
@@ -144,12 +144,19 @@ void increase_heap_size(size_t size)
 
 void display_memory()
 {
-    int *p;
+    int *p = mem_heap_lo();
     int *end_p = mem_heap_hi();
 
     printf("\n**** DISPLAY MEMORY ****\n");
-    for (p = mem_heap_lo(); GET_BLOCK_LENGTH(p) != 0 && p < end_p; p = NEXT_BLOCK(p))
+
+    printf("Low at: %x, high at %x, length is %d\n", (unsigned int)p, (unsigned int)end_p, mem_heapsize());
+
+    for (; p < end_p; p = NEXT_BLOCK(p))
     {
+        if (GET_BLOCK_LENGTH(p) == 0) {
+            fprintf(stderr, "Empy block found at %x, stopping display\n", (unsigned int)p);
+            break;
+        }
         if (is_allocated(p))
             printf("Block at %x:     allocated of size %d\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
         else
@@ -179,6 +186,13 @@ void *mm_malloc(size_t user_size)
     {
         if (DEBUG)
             printf("Seeing block %x with length %d (allocated: %d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), is_allocated(p));
+        if (GET_BLOCK_LENGTH(p) == 0) {
+            fprintf(stderr, "Empy block found at %x, exiting\n", (unsigned int)p);
+            display_memory();
+            fprintf(stderr, "Empy block found at %x, exiting\n", (unsigned int)p);
+            exit(1);
+        }
+        
         p = NEXT_BLOCK(p); // goto next block (word addressed)
     }
 
@@ -246,18 +260,36 @@ void mm_free(void *ptr)
 void *mm_realloc(void *ptr, size_t size)
 {
 
+    if (DEBUG)
+        display_memory();
+
     size_t u_new_size = size;
     size_t new_size = ALIGN(size + SIZE_T_SIZE);
     void *u_old_p = ptr;
-    void *old_p = (char *)ptr - SIZE_T_SIZE;
+    void *old_p = GET_PREV_TAG(ptr);
     size_t old_size = GET_BLOCK_LENGTH(old_p);
-    
+
+    if (DEBUG)
+        printf("User want to realloc %x(%d) to size %d\n", (unsigned int)old_p, old_size, new_size);
+
+    if (old_size == new_size)
+        return ptr;
+    if (old_size == 0)
+        return mm_malloc(size);
+
     // If there is enough space in the old block, just create a new free block after it
     if (old_size >= new_size) {
-        *(size_t *)old_p = new_size;
-        void *newnext_p = NEXT_BLOCK(old_p);  // 'newnext' variables correspond to the free block which has just been created
+        if (DEBUG)  
+            printf("The old block is large enough\n");
+
+        // Set the old block (it is allocated)
+        *(size_t *)old_p = new_size | 1;
+
+        // 'newnext' variables correspond to the free block which has just been created
+        void *newnext_p = NEXT_BLOCK(old_p);
         size_t newnext_size = old_size - new_size;
-        *(size_t *)newnext_p = newnext_size;  // The 'allocated' bit is purposefully not set
+        // The 'allocated' bit is purposefully not set
+        *(size_t *)newnext_p = newnext_size;
         coalesce_next(newnext_p);
         return u_old_p;
     }
@@ -265,10 +297,13 @@ void *mm_realloc(void *ptr, size_t size)
     size_t oldnext_size = GET_BLOCK_LENGTH(oldnext_p);
     
     // If there is enough space in the old block + the next free block, use it 
-    if (!(*(size_t *)oldnext_p & 1) && oldnext_size + old_size >= new_size) {
-        *(size_t *)old_p = new_size;
+    if (!is_allocated(oldnext_p) && oldnext_size + old_size >= new_size) {
+        *(size_t *)old_p = new_size | 1; // It is allocated
+        // Get new next block
         void *newnext_p = NEXT_BLOCK(old_p);
+        // Compute its size
         size_t newnext_size = old_size + oldnext_size - new_size;
+        // Set its value (it is unallocated)
         *(size_t *)newnext_p = newnext_size;
         return u_old_p;
     }
@@ -278,13 +313,14 @@ void *mm_realloc(void *ptr, size_t size)
     if (u_new_p == NULL)
         return NULL;
     size_t u_old_size = old_size - SIZE_T_SIZE;
-    size_t u_copy_size;
-    if (u_new_size < u_new_size)
-        u_copy_size = u_new_size;
-    else
-        u_copy_size = u_old_size;
+
+    // Set the copy_size to min(u_new_size, u_old_size)
+    size_t u_copy_size = u_new_size < u_new_size ? u_new_size : u_old_size;
+    // Copy copy_size bytes from old_ptr to new_ptr
     memcpy(u_new_p, u_old_p, u_copy_size);
+    // Free the old ptr
     mm_free(u_old_p);
+
     return u_new_p;
 }
 #endif
