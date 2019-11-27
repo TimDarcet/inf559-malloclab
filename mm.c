@@ -35,7 +35,7 @@ team_t team = {
     "hadrien.renaud@polytechnique.edu"
 };
 
-#define DEBUG 1
+#define DEBUG 0
 
 #define SIMPLY_LINKED_IMPLICIT
 // #define DOUBLY_LINKED_IMPLICIT
