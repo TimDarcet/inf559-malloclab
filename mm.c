@@ -80,7 +80,7 @@ int mm_init(void)
     b->prev = 0;
     b->size = mem_heapsize();
 
-    free_list_root = b;
+    free_list_root = (size_t *)b;
 
     if (DEBUG)
         printf("Setting first block %x to length %d\n", (unsigned int)b, b->size);
@@ -155,7 +155,7 @@ void insert_into_list(void *p)
     {
         // b is at the start of the list
         b->prev = 0;
-        free_list_root = b;
+        free_list_root = (size_t *)b;
     }
 }
 
