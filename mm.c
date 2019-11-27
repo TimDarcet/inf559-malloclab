@@ -63,6 +63,8 @@ The struct uses the structure described slide 41 of lecture 8
 #define NEXT_BLOCK(ptr) ((void *)((char *)ptr + GET_BLOCK_LENGTH(ptr)))
 #define PREV_BLOCK(ptr) ((void *)((char *)ptr - (GET_PREV_BLOCK_LENGTH(ptr))))
 
+size_t *free_list_root = 0;
+
 /* 
  * mm_init - initialize the malloc package.
  */
@@ -77,6 +79,8 @@ int mm_init(void)
     b->next = 0;
     b->prev = 0;
     b->size = mem_heapsize();
+
+    free_list_root = b;
 
     if (DEBUG)
         printf("Setting first block %x to length %d\n", (unsigned int)b, b->size);
@@ -151,6 +155,7 @@ void insert_into_list(void *p)
     {
         // b is at the start of the list
         b->prev = 0;
+        free_list_root = b;
     }
 }
 
@@ -228,9 +233,9 @@ void *mm_malloc(size_t user_size)
         printf("User want to malloc %d...\n", user_size);
     }
 
-    int *p = mem_heap_lo();
+    int *p = free_list_root;
     int *end_p = mem_heap_hi();
-    while ((p < end_p) && (is_allocated(p) || (GET_BLOCK_LENGTH(p) <= newsize)))
+    while ((p < end_p) && (GET_BLOCK_LENGTH(p) <= newsize))
     {
         if (DEBUG)
             printf("Seeing block %x with length %d (allocated: %d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), is_allocated(p));
@@ -241,7 +246,7 @@ void *mm_malloc(size_t user_size)
             exit(1);
         }
         
-        p = NEXT_BLOCK(p); // goto next block (word addressed)
+        p = ((free_block *)p)->next; // goto next block (word addressed)
     }
 
     if (newsize > GET_BLOCK_LENGTH(p) || p >= end_p)
