@@ -68,17 +68,18 @@ The struct uses the structure described slide 41 of lecture 8
  */
 int mm_init(void)
 {
-    int *p = mem_heap_lo();
-
     if (mem_heapsize() < 256)
     {
         mem_sbrk(ALIGN(256 - mem_heapsize()));
     }
 
-    *(size_t *)p = mem_heapsize();
+    free_block *b = (free_block *)mem_heap_lo();
+    b->next = 0;
+    b->prev = 0;
+    b->size = mem_heapsize();
 
     if (DEBUG)
-        printf("Setting first block %x to length %d\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
+        printf("Setting first block %x to length %d\n", (unsigned int)b, b->size);
 
     return 0;
 }
@@ -102,22 +103,61 @@ void coalesce_next(void *p)
     }
 }
 
+void insert_into_list(void *p)
+{
+    /**
+     * This function insert p into the explicit double-linked list
+     * 
+     * This function only makes one assumption on p: its length is 
+     * the right length. It initializes prev and next to the previous
+     * and next free block, if they exists, or to 0 otherwise.
+     */
+
+    free_block *b = (free_block *)p;
+    int *start_n = mem_heap_lo();
+    int *end_n = mem_heap_hi();
+    int *next_free = NEXT_BLOCK(p);
+    int *prev_free = 0;
+
+    // We search for the next free block
+    while (is_allocated(next_free) && next_free < end_n)
+        next_free = NEXT_BLOCK(next_free);
+
+    // We insert it
+    if (next_free < end_n)
+    {
+        // Now we know that it is free
+        b->next = next_free;
+        prev_free = ((free_block *)next_free)->prev;
+        ((free_block *)next_free)->prev = p;
+    }
+    else
+    {
+        // b is at the end of the list
+        b->next = 0;
+
+        // We search for the previous free block
+        prev_free = PREV_BLOCK(p);
+        while (is_allocated(prev_free) && prev_free >= start_n)
+            prev_free = PREV_BLOCK(prev_free);
+    }
+
+    if (prev_free >= start_n)
+    {
+        b->prev = prev_free;
+        ((free_block *)prev_free)->next = p;
+    }
+    else
+    {
+        // b is at the start of the list
+        b->prev = 0;
+    }
+}
+
 void coalesce_prev(void *p)
 {
-    int *previous = mem_heap_lo();
-    while (NEXT_BLOCK(previous) < p)
-    {
-        if (DEBUG)
-            printf("Coalesce see block %x with length %d (allocated: %d)\n", (unsigned int)previous, GET_BLOCK_LENGTH(previous), is_allocated(previous));
-
-        if (GET_BLOCK_LENGTH(previous) == 0)
-        {
-            if (DEBUG)
-                printf("Block with size 0 found\n");
-            break;
-        }
-        previous = NEXT_BLOCK(previous); // goto next block (word addressed)
-    }
+    int *previous = PREV_BLOCK(p);
+    
     // previous can be equal to p if p is mem_heap_lo, in this case we don't do anything
     if (previous != p && !is_allocated(previous))
     {
@@ -131,6 +171,7 @@ void coalesce(void *p)
 {
     coalesce_next(p);
     coalesce_prev(p);
+    insert_into_list(p);
 }
 
 void increase_heap_size(size_t size)
@@ -167,7 +208,7 @@ void display_memory()
         if (is_allocated(p))
             printf("Block at %x:     allocated of size %d\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
         else
-            printf("Block at %x: not allocated of size %d\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
+            printf("Block at %x: not allocated of size %d --> next=%x, prev=%x\n", (unsigned int)p, GET_BLOCK_LENGTH(p), (unsigned int)(p + SIZE_T_SIZE), (unsigned int)(p + SIZE_T_SIZE));
     }
     printf("************************\n\n");
 }
