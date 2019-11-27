@@ -83,7 +83,7 @@ int mm_init(void)
     free_list_root = b;
 
     if (DEBUG)
-        printf("Setting first block %x to length %d\n", (unsigned int)b, b->size);
+        printf("Setting first block %x to length %d\n", b, b->size);
 
     return 0;
 }
@@ -96,12 +96,12 @@ int is_allocated(void *p)
 void coalesce_next(void *p)
 {
     // Coalesce block pointed to by p with next block, if it is free
-    int *n = NEXT_BLOCK(p);
-    int *end_n = mem_heap_hi();
+    size_t *n = NEXT_BLOCK(p);
+    size_t *end_n = mem_heap_hi();
     if (!is_allocated(n) && n < end_n)
     {
         if (DEBUG)
-            printf("coalesce merge block %x(%d) with block %x(%d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), (unsigned int)n, GET_BLOCK_LENGTH(n));
+            printf("coalesce merge block %x(%d) with block %x(%d)\n", p, GET_BLOCK_LENGTH(p), n, GET_BLOCK_LENGTH(n));
 
         *(size_t *)p += GET_BLOCK_LENGTH(n);
     }
@@ -118,10 +118,10 @@ void insert_into_list(void *p)
      */
 
     free_block *b = (free_block *)p;
-    int *start_n = mem_heap_lo();
-    int *end_n = mem_heap_hi();
-    int *next_free = NEXT_BLOCK(p);
-    int *prev_free = 0;
+    size_t *start_n = mem_heap_lo();
+    size_t *end_n = mem_heap_hi();
+    size_t *next_free = NEXT_BLOCK(p);
+    size_t *prev_free = 0;
 
     // We search for the next free block
     while (is_allocated(next_free) && next_free < end_n)
@@ -161,13 +161,13 @@ void insert_into_list(void *p)
 
 void coalesce_prev(void *p)
 {
-    int *previous = PREV_BLOCK(p);
+    size_t *previous = PREV_BLOCK(p);
     
     // previous can be equal to p if p is mem_heap_lo, in this case we don't do anything
     if (previous != p && !is_allocated(previous))
     {
         if (DEBUG)
-            printf("coalesce set size for block %x to %d\n", (unsigned int)previous, GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
+            printf("coalesce set size for block %x to %d\n", previous, GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
         *(size_t *)previous += GET_BLOCK_LENGTH(p);
     }
 }
@@ -186,34 +186,36 @@ void increase_heap_size(size_t size)
         printf("Increasing heapsize to %d\n", size);
 
     // Increase
-    int *p = mem_sbrk(size);
-    *(size_t *)p = size;
+    size_t *p = mem_sbrk(size);
+    *p = size;
 
     if (DEBUG)
-        printf("Added block at %x(%d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
+        printf("Added block at %x(%d)\n", p, GET_BLOCK_LENGTH(p));
 
     coalesce(p);
 }
 
 void display_memory()
 {
-    int *p = mem_heap_lo();
-    int *end_p = mem_heap_hi();
+    size_t *p = mem_heap_lo();
+    size_t *end_p = mem_heap_hi();
 
     printf("\n**** DISPLAY MEMORY ****\n");
 
-    printf("Low at: %x, high at %x, length is %d\n", (unsigned int)p, (unsigned int)end_p, mem_heapsize());
+    printf("Low at: %x, high at %x, length is %d\n", p, end_p, mem_heapsize());
 
     for (; p < end_p; p = NEXT_BLOCK(p))
     {
         if (GET_BLOCK_LENGTH(p) == 0) {
-            fprintf(stderr, "Empy block found at %x, stopping display\n", (unsigned int)p);
+            fprintf(stderr, "Empy block found at %x, stopping display\n", p);
             break;
         }
         if (is_allocated(p))
-            printf("Block at %x:     allocated of size %d\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
-        else
-            printf("Block at %x: not allocated of size %d --> next=%x, prev=%x\n", (unsigned int)p, GET_BLOCK_LENGTH(p), (unsigned int)(p + SIZE_T_SIZE), (unsigned int)(p + SIZE_T_SIZE));
+            printf("Block at %x:     allocated of size %d\n", p, GET_BLOCK_LENGTH(p));
+        else {
+            free_block *b = (free_block *)p;
+            printf("Block at %x: not allocated of size %d --> next=%x, prev=%x\n", p, GET_BLOCK_LENGTH(p), b->next, b->prev);
+        }
     }
     printf("************************\n\n");
 }
@@ -233,16 +235,16 @@ void *mm_malloc(size_t user_size)
         printf("User want to malloc %d...\n", user_size);
     }
 
-    int *p = free_list_root;
-    int *end_p = mem_heap_hi();
+    size_t *p = free_list_root;
+    size_t *end_p = mem_heap_hi();
     while ((p < end_p) && (GET_BLOCK_LENGTH(p) <= newsize))
     {
         if (DEBUG)
-            printf("Seeing block %x with length %d (allocated: %d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), is_allocated(p));
+            printf("Seeing block %x with length %d (allocated: %d)\n", p, GET_BLOCK_LENGTH(p), is_allocated(p));
         if (GET_BLOCK_LENGTH(p) == 0) {
-            fprintf(stderr, "Empy block found at %x, exiting\n", (unsigned int)p);
+            fprintf(stderr, "Empy block found at %x, exiting\n", p);
             display_memory();
-            fprintf(stderr, "Empy block found at %x, exiting\n", (unsigned int)p);
+            fprintf(stderr, "Empy block found at %x, exiting\n", p);
             exit(1);
         }
         
@@ -264,13 +266,13 @@ void *mm_malloc(size_t user_size)
 
         if (old_size != newsize)
         {
-            int *next_p = NEXT_BLOCK(p);
+            size_t *next_p = NEXT_BLOCK(p);
             // Set size to the rest of the block, and leave it unallocated
             *(size_t *)next_p = ALIGN(old_size - newsize);
         }
 
         if (DEBUG)
-            printf("Malloc %d to %x\n\n", user_size, (unsigned int)p);
+            printf("Malloc %d to %x\n\n", user_size, p);
 
         return (void *)((char *)p + SIZE_T_SIZE);
     }
@@ -284,7 +286,7 @@ void mm_free(void *ptr)
     if (DEBUG)
         display_memory();
 
-    int *p = (int *)GET_PREV_TAG(ptr);
+    size_t *p = GET_PREV_TAG(ptr);
     *p = *p & -2;
 
     int len_p = GET_BLOCK_LENGTH(p);
@@ -293,7 +295,7 @@ void mm_free(void *ptr)
 
     if (DEBUG)
     {
-        printf("Freeing %d at %x. The result:\n", len_p, (unsigned int)p);
+        printf("Freeing %d at %x. The result:\n", len_p, p);
         display_memory();
     }
 }
