@@ -35,10 +35,19 @@ team_t team = {
     "hadrien.renaud@polytechnique.edu"
 };
 
-#define DEBUG 0
+#define DEBUG 1
 
-#define SIMPLY_LINKED_IMPLICIT
-// #define DOUBLY_LINKED_IMPLICIT
+typedef struct free_block {
+    size_t size;
+    size_t *next;
+    size_t *prev;
+} free_block;
+
+/*
+We use an Explicit Free Lists, using Address-ordered policy
+The struct uses the structure described slide 41 of lecture 8
+( available at https://moodle.polytechnique.fr/pluginfile.php/136659/mod_resource/content/6/lec8-alloc.pdf )
+*/
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
@@ -47,15 +56,13 @@ team_t team = {
 #define ALIGN(size) (((size) + (ALIGNMENT-1)) & ~0x7)
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
-
+#define REAL_SIZE_FROM_USER(size) (ALIGN(size + 2*SIZE_T_SIZE))
 #define GET_BLOCK_LENGTH(ptr) (*(size_t *)ptr & -2)
 #define GET_PREV_TAG(ptr) ((size_t *)((char *)ptr - SIZE_T_SIZE))
 #define GET_PREV_BLOCK_LENGTH(ptr) (*(GET_PREV_TAG(ptr)) & -2)
 #define NEXT_BLOCK(ptr) ((void *)((char *)ptr + GET_BLOCK_LENGTH(ptr)))
 #define PREV_BLOCK(ptr) ((void *)((char *)ptr - (GET_PREV_BLOCK_LENGTH(ptr))))
 
-
-#ifdef SIMPLY_LINKED_IMPLICIT
 /* 
  * mm_init - initialize the malloc package.
  */
@@ -171,7 +178,7 @@ void display_memory()
  */
 void *mm_malloc(size_t user_size)
 {
-    size_t newsize = ALIGN(user_size + SIZE_T_SIZE);
+    size_t newsize = REAL_SIZE_FROM_USER(user_size);
     size_t tag = newsize | 1; // the block is allocated
 
     if (DEBUG)
@@ -264,7 +271,7 @@ void *mm_realloc(void *ptr, size_t size)
         display_memory();
 
     size_t u_new_size = size;
-    size_t new_size = ALIGN(size + SIZE_T_SIZE);
+    size_t new_size = REAL_SIZE_FROM_USER(size);
     void *u_old_p = ptr;
     void *old_p = GET_PREV_TAG(ptr);
     size_t old_size = GET_BLOCK_LENGTH(old_p);
@@ -323,41 +330,3 @@ void *mm_realloc(void *ptr, size_t size)
 
     return u_new_p;
 }
-#endif
-#ifdef DOUBLY_LINKED_IMPLICIT
-
-/*
- * coalesce_next - Coalesce block pointed to by p with next block, if it is free
- */
-void coalesce_next(void *p)
-{
-    void *n = NEXT_BLOCK(p);
-    if (!is_allocated(n))
-    {
-        size_t old_size = GET_BLOCK_LENGTH(p);
-        *(size_t *)p += GET_BLOCK_LENGTH(n);
-        *GET_PREV_TAG(NEXT_BLOCK(p)) += old_size;
-    }
-}
-
-/*
- * coalesce_prev - Coalesce block pointed to by p with previous block, if it is free
- */
-void coalesce_prev(void *p)
-{
-    void *prev = PREV_BLOCK(p);
-    if (!is_allocated(prev))
-    {
-        *GET_PREV_TAG(NEXT_BLOCK(p)) += GET_BLOCK_LENGTH(prev);
-        *(size_t *)prev += GET_BLOCK_LENGTH(p);
-    }
-}
-
-/*
- * coalesce - Coalesce block pointed to by p with next and previous block, if they are free
- */
-void coalesce(void *p){
-    coalesce_next(p);
-    coalesce_prev(p);
-}
-#endif
