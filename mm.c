@@ -235,8 +235,9 @@ void *mm_malloc(size_t user_size)
         printf("User want to malloc %d...\n", user_size);
     }
 
+    free_block *p;
     size_t *end_p = mem_heap_hi();
-    for (free_block *p = free_list_root;
+    for (p = free_list_root;
          (p < end_p) && (GET_BLOCK_LENGTH(p) <= newsize);
          p = p->next)
     {
