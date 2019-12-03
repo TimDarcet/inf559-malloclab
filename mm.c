@@ -35,7 +35,7 @@ team_t team = {
     "hadrien.renaud@polytechnique.edu"
 };
 
-// #define DEBUG
+#define DEBUG
 
 typedef struct free_block {
     size_t size; // MEF: size holds the size + the bit field used to mark allocation. For safety, access this field using GET_BLOCK_LENGTH when reading
@@ -326,11 +326,10 @@ void mm_free(void *ptr)
     size_t *p = GET_PREV_TAG(ptr);
     *p = *p & -2;
 
-    int len_p = GET_BLOCK_LENGTH(p);
-
     coalesce(p);
 
     #ifdef DEBUG
+        int len_p = GET_BLOCK_LENGTH(p);
         printf("Freeing %d at %p. The result:\n", len_p, p);
         display_memory();
     #endif
