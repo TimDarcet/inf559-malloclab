@@ -39,8 +39,8 @@ team_t team = {
 
 typedef struct free_block {
     size_t size;
-    size_t *next;
-    size_t *prev;
+    free_block *next;
+    free_block *prev;
 } free_block;
 
 /*
@@ -131,9 +131,9 @@ void insert_into_list(void *p)
     if (next_free < end_n)
     {
         // Now we know that it is free
-        b->next = next_free;
+        b->next = (free_block *)next_free;
         prev_free = ((free_block *)next_free)->prev;
-        ((free_block *)next_free)->prev = p;
+        ((free_block *)next_free)->prev = (free_block *)p;
     }
     else
     {
@@ -149,7 +149,7 @@ void insert_into_list(void *p)
     if (prev_free >= start_n)
     {
         b->prev = prev_free;
-        ((free_block *)prev_free)->next = p;
+        ((free_block *)prev_free)->next = (free_block *)p;
     }
     else
     {
@@ -214,7 +214,7 @@ void display_memory()
             printf("Block at %x:     allocated of size %d\n",(unsigned int) p, GET_BLOCK_LENGTH(p));
         else {
             free_block *b = (free_block *)p;
-            printf("Block at %x: not allocated of size %d --> next=%x, prev=%x\n", (unsigned int)p, GET_BLOCK_LENGTH(p), (unsigned int)b->next, (unsigned int)b->prev);
+            printf("Block at %p: not allocated of size %d --> next=%x, prev=%x\n", p, GET_BLOCK_LENGTH(p), (unsigned int)b->next, (unsigned int)b->prev);
         }
     }
     printf("************************\n\n");
@@ -237,8 +237,8 @@ void *mm_malloc(size_t user_size)
 
     free_block *p;
     size_t *end_p = mem_heap_hi();
-    for (p = free_list_root;
-         (p < end_p) && (GET_BLOCK_LENGTH(p) <= newsize);
+    for (p = (free_block *)free_list_root;
+         (p < (free_block *)end_p) && (GET_BLOCK_LENGTH(p) <= newsize);
          p = p->next)
     {
         if (DEBUG)
@@ -254,7 +254,7 @@ void *mm_malloc(size_t user_size)
             break; // goto next block (word addressed)
     }
 
-    if (newsize > GET_BLOCK_LENGTH(p) || p >= end_p)
+    if (newsize > GET_BLOCK_LENGTH(p) || p >= (free_block *)end_p)
     {
         increase_heap_size(2 * newsize);
         return mm_malloc(user_size);
