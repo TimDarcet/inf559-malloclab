@@ -83,7 +83,7 @@ int mm_init(void)
     free_list_root = (size_t *)b;
 
     if (DEBUG)
-        printf("Setting first block %x to length %d\n", (unsigned int)b, b->size);
+        printf("Setting first block %p to length %d\n", b, b->size);
 
     return 0;
 }
@@ -101,7 +101,7 @@ void coalesce_next(void *p)
     if (!is_allocated(n) && n < end_n)
     {
         if (DEBUG)
-            printf("coalesce merge block %x(%d) with block %x(%d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), (unsigned int)n, GET_BLOCK_LENGTH(n));
+            printf("coalesce merge block %p(%d) with block %p(%d)\n", p, GET_BLOCK_LENGTH(p), n, GET_BLOCK_LENGTH(n));
 
         *(size_t *)p += GET_BLOCK_LENGTH(n);
     }
@@ -132,7 +132,7 @@ void insert_into_list(void *p)
     {
         // Now we know that it is free
         b->next = (free_block *)next_free;
-        prev_free = ((free_block *)next_free)->prev;
+        prev_free = (size_t *)((free_block *)next_free)->prev;
         ((free_block *)next_free)->prev = (free_block *)p;
     }
     else
@@ -148,7 +148,7 @@ void insert_into_list(void *p)
 
     if (prev_free >= start_n)
     {
-        b->prev = prev_free;
+        b->prev = (free_block *)prev_free;
         ((free_block *)prev_free)->next = (free_block *)p;
     }
     else
@@ -167,7 +167,7 @@ void coalesce_prev(void *p)
     if (previous != p && !is_allocated(previous))
     {
         if (DEBUG)
-            printf("coalesce set size for block %x to %d\n", (unsigned int)previous, GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
+            printf("coalesce set size for block %p to %d\n", previous, GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
         *(size_t *)previous += GET_BLOCK_LENGTH(p);
     }
 }
@@ -190,7 +190,7 @@ void increase_heap_size(size_t size)
     *p = size;
 
     if (DEBUG)
-        printf("Added block at %x(%d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p));
+        printf("Added block at %p(%d)\n", p, GET_BLOCK_LENGTH(p));
 
     coalesce(p);
 }
@@ -202,19 +202,19 @@ void display_memory()
 
     printf("\n************************\n**** DISPLAY MEMORY ****\n");
 
-    printf("Low at: %x, high at %x, length is %d\n", (unsigned int)p, (unsigned int)end_p, mem_heapsize());
+    printf("Low at: %p, high at %p, length is %d\n", p, end_p, mem_heapsize());
 
     for (; p < end_p; p = NEXT_BLOCK(p))
     {
         if (GET_BLOCK_LENGTH(p) == 0) {
-            fprintf(stderr, "Empy block found at %x, stopping display\n", (unsigned int)p);
+            fprintf(stderr, "Empy block found at %p, stopping display\n", p);
             break;
         }
         if (is_allocated(p))
-            printf("Block at %x:     allocated of size %d\n",(unsigned int) p, GET_BLOCK_LENGTH(p));
+            printf("Block at %p:     allocated of size %d\n", p, GET_BLOCK_LENGTH(p));
         else {
             free_block *b = (free_block *)p;
-            printf("Block at %p: not allocated of size %d --> next=%x, prev=%x\n", p, GET_BLOCK_LENGTH(p), (unsigned int)b->next, (unsigned int)b->prev);
+            printf("Block at %p: not allocated of size %d --> next=%p, prev=%p\n", p, GET_BLOCK_LENGTH(p), b->next, b->prev);
         }
     }
     printf("************************\n\n");
@@ -242,11 +242,11 @@ void *mm_malloc(size_t user_size)
          p = p->next)
     {
         if (DEBUG)
-            printf("Seeing block %x with length %d (allocated: %d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), is_allocated(p));
+            printf("Seeing block %p with length %d (allocated: %d)\n", p, GET_BLOCK_LENGTH(p), is_allocated(p));
         if (GET_BLOCK_LENGTH(p) == 0) {
-            fprintf(stderr, "Empy block found at %x, exiting\n", (unsigned int)p);
+            fprintf(stderr, "Empy block found at %p, exiting\n", p);
             display_memory();
-            fprintf(stderr, "Empy block found at %x, exiting\n", (unsigned int)p);
+            fprintf(stderr, "Empy block found at %p, exiting\n", p);
             exit(1);
         }
         
@@ -275,7 +275,7 @@ void *mm_malloc(size_t user_size)
         }
 
         if (DEBUG)
-            printf("Malloc %d to %x\n\n", user_size, (unsigned int)p);
+            printf("Malloc %d to %p\n\n", user_size, p);
 
         return (void *)((char *)p + SIZE_T_SIZE);
     }
@@ -298,7 +298,7 @@ void mm_free(void *ptr)
 
     if (DEBUG)
     {
-        printf("Freeing %d at %x. The result:\n", len_p, (unsigned int)p);
+        printf("Freeing %d at %p. The result:\n", len_p, p);
         display_memory();
     }
 }
@@ -328,7 +328,7 @@ void *mm_realloc(void *ptr, size_t size)
     size_t old_size = GET_BLOCK_LENGTH(old_p);
 
     if (DEBUG)
-        printf("User want to realloc %x(%d) to size %d\n", (unsigned int)old_p, old_size, new_size);
+        printf("User want to realloc %p(%d) to size %d\n", old_p, old_size, new_size);
 
     if (old_size == new_size)
         return ptr;
