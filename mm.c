@@ -39,8 +39,8 @@ team_t team = {
 
 typedef struct free_block {
     size_t size;
-    free_block *next;
-    free_block *prev;
+    struct free_block *next;
+    struct free_block *prev;
 } free_block;
 
 /*
