@@ -35,10 +35,10 @@ team_t team = {
     "hadrien.renaud@polytechnique.edu"
 };
 
-#define DEBUG 1
+// #define DEBUG
 
 typedef struct free_block {
-    size_t size;
+    size_t size; // MEF: size holds the size + the bit field used to mark allocation. For safety, access this field using GET_BLOCK_LENGTH when reading
     struct free_block *next;
     struct free_block *prev;
 } free_block;
@@ -82,116 +82,150 @@ int mm_init(void)
 
     free_list_root = (size_t *)b;
 
-    if (DEBUG)
-        printf("Setting first block %p to length %d\n", b, b->size);
-
+    #ifdef DEBUG
+    printf("Setting first block %p to length %d\n", b, b->size);
+    #endif
     return 0;
 }
 
+//TODO: this could be a macro
 int is_allocated(void *p)
 {
     return *(size_t *)p & 1;
 }
 
-void coalesce_next(void *p)
-{
-    // Coalesce block pointed to by p with next block, if it is free
-    size_t *n = NEXT_BLOCK(p);
-    size_t *end_n = mem_heap_hi();
-    if (!is_allocated(n) && n < end_n)
-    {
-        if (DEBUG)
-            printf("coalesce merge block %p(%d) with block %p(%d)\n", p, GET_BLOCK_LENGTH(p), n, GET_BLOCK_LENGTH(n));
-
-        *(size_t *)p += GET_BLOCK_LENGTH(n);
-    }
-}
-
+/*
+ * This function insert p into the explicit double-linked list
+ * 
+ * This function only makes one assumption on p: its length is 
+ * the right length. It initializes prev and next to the previous
+ * and next free block, if they exists, or to 0 otherwise.
+ */
 void insert_into_list(void *p)
 {
-    /**
-     * This function insert p into the explicit double-linked list
-     * 
-     * This function only makes one assumption on p: its length is 
-     * the right length. It initializes prev and next to the previous
-     * and next free block, if they exists, or to 0 otherwise.
-     */
-
     free_block *b = (free_block *)p;
     size_t *start_n = mem_heap_lo();
     size_t *end_n = mem_heap_hi();
-    size_t *next_free = NEXT_BLOCK(p);
+    size_t *next_free;
     size_t *prev_free = NULL;
 
     // We search for the next free block
-    while (is_allocated(next_free) && next_free < end_n)
-        next_free = NEXT_BLOCK(next_free);
+    for (next_free = NEXT_BLOCK(p);
+         next_free < end_n && is_allocated(next_free);
+         next_free = NEXT_BLOCK(next_free));
 
     // We insert it
-    if (next_free < end_n)
-    {
+    if (next_free < end_n) {
         // Now we know that it is free
         b->next = (free_block *)next_free;
         prev_free = (size_t *)((free_block *)next_free)->prev;
         ((free_block *)next_free)->prev = (free_block *)p;
     }
-    else
-    {
+    else {
         // b is at the end of the list
         b->next = NULL;
 
         // We search for the previous free block
-        prev_free = PREV_BLOCK(p);
-        while (is_allocated(prev_free) && prev_free >= start_n)
+        prev_free = p;
+        do {
+            if (prev_free == start_n) {
+                prev_free = NULL;
+                break;
+            }
             prev_free = PREV_BLOCK(prev_free);
+        } while (is_allocated(prev_free));
+
     }
 
-    if (prev_free >= start_n)
-    {
+    if (prev_free >= start_n) {
         b->prev = (free_block *)prev_free;
         ((free_block *)prev_free)->next = (free_block *)p;
     }
-    else
-    {
+    else {
         // b is at the start of the list
         b->prev = NULL;
         free_list_root = (size_t *)b;
     }
 }
 
-void coalesce_prev(void *p)
+
+int coalesce_next(free_block *p)
 {
-    size_t *previous = PREV_BLOCK(p);
-    
-    // previous can be equal to p if p is mem_heap_lo, in this case we don't do anything
-    if (previous != p && !is_allocated(previous))
+    #ifdef DEBUG
+    if (is_allocated(p)) {
+        exit(1);
+    }
+    #endif
+    // Coalesce block pointed to by p with next block, if it is free
+    free_block *n = NEXT_BLOCK(p);
+    free_block *end_n = mem_heap_hi();
+    if (n < end_n && !is_allocated(n))
     {
-        if (DEBUG)
+        #ifdef DEBUG
+            printf("coalesce merge block %p(%d) with block %p(%d)\n", p, GET_BLOCK_LENGTH(p), n, GET_BLOCK_LENGTH(n));
+        #endif
+        p->size += n->size; // n->size works because the block is free
+        p->next = n->next;
+        p->next->prev = p;
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+
+/*
+ * Coalesce the block with the previous block if it is free
+ * Returns 1 if it coalesced, 0 elsewise
+ */
+int coalesce_prev(free_block *p)
+{
+    #ifdef DEBUG
+    if (is_allocated(p)) {
+        exit(1);
+    }
+    #endif
+    // Handle this case as PREV_BLOCK is not defined there
+    if (p == mem_heap_lo()) {
+        return 0;
+    }
+
+    free_block *previous = PREV_BLOCK(p);
+    
+    if (!is_allocated(previous)) {
+        #ifdef DEBUG
             printf("coalesce set size for block %p to %d\n", previous, GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
-        *(size_t *)previous += GET_BLOCK_LENGTH(p);
+        #endif
+        previous->size += GET_BLOCK_LENGTH(p);
+        previous->next = p->next;
+        previous->next->prev = previous;
+        return 1;
+    }
+    else {
+        return 0;
     }
 }
 
 void coalesce(void *p)
 {
-    coalesce_next(p);
-    coalesce_prev(p);
+    while(coalesce_next(p));
+    while(coalesce_prev(p));
     insert_into_list(p);
 }
 
 void increase_heap_size(size_t size)
 {
     size = ALIGN(size);
-    if (DEBUG)
-        printf("Increasing heapsize to %d\n", size);
-
+    #ifdef DEBUG
+        printf("Increasing heapsize by %d\n", size);
+    #endif
     // Increase
-    size_t *p = mem_sbrk(size);
-    *p = size;
+    free_block *p = mem_sbrk(size);
+    p->size = size;
 
-    if (DEBUG)
+    #ifdef DEBUG
         printf("Added block at %p(%d)\n", p, GET_BLOCK_LENGTH(p));
-
+    #endif
     coalesce(p);
 }
 
@@ -229,11 +263,10 @@ void *mm_malloc(size_t user_size)
     size_t newsize = REAL_SIZE_FROM_USER(user_size);
     size_t tag = newsize | 1; // the block is allocated
 
-    if (DEBUG)
-    {
+    #ifdef DEBUG
         display_memory();
         printf("User want to malloc %d...\n", user_size);
-    }
+    #endif
 
     free_block *p;
     size_t *end_p = mem_heap_hi();
@@ -241,8 +274,9 @@ void *mm_malloc(size_t user_size)
          (p < (free_block *)end_p) && (GET_BLOCK_LENGTH(p) <= newsize);
          p = p->next)
     {
-        if (DEBUG)
+        #ifdef DEBUG
             printf("Seeing block %p with length %d (allocated: %d)\n", p, GET_BLOCK_LENGTH(p), is_allocated(p));
+        #endif
         if (GET_BLOCK_LENGTH(p) == 0) {
             fprintf(stderr, "Empy block found at %p, exiting\n", p);
             display_memory();
@@ -274,9 +308,9 @@ void *mm_malloc(size_t user_size)
             *(size_t *)next_p = ALIGN(old_size - newsize);
         }
 
-        if (DEBUG)
+        #ifdef DEBUG
             printf("Malloc %d to %p\n\n", user_size, p);
-
+        #endif
         return (void *)((char *)p + SIZE_T_SIZE);
     }
 }
@@ -286,9 +320,9 @@ void *mm_malloc(size_t user_size)
  */
 void mm_free(void *ptr)
 {
-    if (DEBUG)
+    #ifdef DEBUG
         display_memory();
-
+    #endif
     size_t *p = GET_PREV_TAG(ptr);
     *p = *p & -2;
 
@@ -296,11 +330,10 @@ void mm_free(void *ptr)
 
     coalesce(p);
 
-    if (DEBUG)
-    {
+    #ifdef DEBUG
         printf("Freeing %d at %p. The result:\n", len_p, p);
         display_memory();
-    }
+    #endif
 }
 
 /*
@@ -318,18 +351,18 @@ void mm_free(void *ptr)
 void *mm_realloc(void *ptr, size_t size)
 {
 
-    if (DEBUG)
+    #ifdef DEBUG
         display_memory();
-
+    #endif
     size_t u_new_size = size;
     size_t new_size = REAL_SIZE_FROM_USER(size);
     void *u_old_p = ptr;
     void *old_p = GET_PREV_TAG(ptr);
     size_t old_size = GET_BLOCK_LENGTH(old_p);
 
-    if (DEBUG)
+    #ifdef DEBUG
         printf("User want to realloc %p(%d) to size %d\n", old_p, old_size, new_size);
-
+    #endif
     if (old_size == new_size)
         return ptr;
     if (old_size == 0)
@@ -337,9 +370,9 @@ void *mm_realloc(void *ptr, size_t size)
 
     // If there is enough space in the old block, just create a new free block after it
     if (old_size >= new_size) {
-        if (DEBUG)  
+        #ifdef DEBUG
             printf("The old block is large enough\n");
-
+        #endif
         // Set the old block (it is allocated)
         *(size_t *)old_p = new_size | 1;
 
