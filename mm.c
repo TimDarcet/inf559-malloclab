@@ -35,7 +35,7 @@ team_t team = {
     "hadrien.renaud@polytechnique.edu"
 };
 
-#define DEBUG 1
+#define DEBUG 0
 
 typedef struct free_block {
     size_t size;
