@@ -63,7 +63,7 @@ The struct uses the structure described slide 41 of lecture 8
 #define NEXT_BLOCK(ptr) ((void *)((char *)ptr + GET_BLOCK_LENGTH(ptr)))
 #define PREV_BLOCK(ptr) ((void *)((char *)ptr - (GET_PREV_BLOCK_LENGTH(ptr))))
 
-size_t *free_list_root = 0;
+size_t *free_list_root = NULL;
 
 /* 
  * mm_init - initialize the malloc package.
@@ -76,8 +76,8 @@ int mm_init(void)
     }
 
     free_block *b = (free_block *)mem_heap_lo();
-    b->next = 0;
-    b->prev = 0;
+    b->next = NULL;
+    b->prev = NULL;
     b->size = mem_heapsize();
 
     free_list_root = (size_t *)b;
@@ -121,7 +121,7 @@ void insert_into_list(void *p)
     size_t *start_n = mem_heap_lo();
     size_t *end_n = mem_heap_hi();
     size_t *next_free = NEXT_BLOCK(p);
-    size_t *prev_free = 0;
+    size_t *prev_free = NULL;
 
     // We search for the next free block
     while (is_allocated(next_free) && next_free < end_n)
@@ -138,7 +138,7 @@ void insert_into_list(void *p)
     else
     {
         // b is at the end of the list
-        b->next = 0;
+        b->next = NULL;
 
         // We search for the previous free block
         prev_free = PREV_BLOCK(p);
@@ -154,7 +154,7 @@ void insert_into_list(void *p)
     else
     {
         // b is at the start of the list
-        b->prev = 0;
+        b->prev = NULL;
         free_list_root = (size_t *)b;
     }
 }
@@ -200,7 +200,7 @@ void display_memory()
     size_t *p = mem_heap_lo();
     size_t *end_p = mem_heap_hi();
 
-    printf("\n**** DISPLAY MEMORY ****\n");
+    printf("\n************************\n**** DISPLAY MEMORY ****\n");
 
     printf("Low at: %x, high at %x, length is %d\n", (unsigned int)p, (unsigned int)end_p, mem_heapsize());
 
@@ -235,9 +235,10 @@ void *mm_malloc(size_t user_size)
         printf("User want to malloc %d...\n", user_size);
     }
 
-    size_t *p = free_list_root;
     size_t *end_p = mem_heap_hi();
-    while ((p < end_p) && (GET_BLOCK_LENGTH(p) <= newsize))
+    for (free_block *p = free_list_root;
+         (p < end_p) && (GET_BLOCK_LENGTH(p) <= newsize);
+         p = p->next)
     {
         if (DEBUG)
             printf("Seeing block %x with length %d (allocated: %d)\n", (unsigned int)p, GET_BLOCK_LENGTH(p), is_allocated(p));
@@ -248,7 +249,8 @@ void *mm_malloc(size_t user_size)
             exit(1);
         }
         
-        p = ((free_block *)p)->next; // goto next block (word addressed)
+        if (p->next == NULL)
+            break; // goto next block (word addressed)
     }
 
     if (newsize > GET_BLOCK_LENGTH(p) || p >= end_p)
