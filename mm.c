@@ -167,6 +167,9 @@ void remove_from_list(void *p)
     #endif
     if (p == free_list_root) {
         free_list_root = b->next;
+        #ifdef DEBUG
+        printf("free_list root was %p, becomes %p\n", p, b->next);
+        #endif
     }
 }
 
