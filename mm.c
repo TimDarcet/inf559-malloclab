@@ -124,6 +124,7 @@ void insert_into_list(void *p)
     }
     else {
         // b is at the end of the list
+        next_free = NULL;
         b->next = NULL;
 
         // We search for the previous free block
@@ -138,7 +139,7 @@ void insert_into_list(void *p)
 
     }
     #ifdef DEBUG
-    printf("Inserting %p, prev_free=%p, next_free=%p", p, prev_free, next_free);
+    printf("Inserting %p, prev_free=%p, next_free=%p\n", p, prev_free, next_free);
     #endif
     if (prev_free >= start_n) {
         b->prev = (free_block *)prev_free;
@@ -259,6 +260,9 @@ void increase_heap_size(size_t size)
     #endif
     //TODO: This could be optimized using the fact that we insert at the end of the heap
     insert_into_list(p);
+    #ifdef DEBUG
+        display_memory();
+    #endif
     coalesce(p);
 }
 
