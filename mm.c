@@ -210,10 +210,13 @@ int coalesce_prev(free_block *p)
             printf("GET_PREV_TAG(NEXT_BLOCK(p))=%p\n", GET_PREV_TAG(NEXT_BLOCK(p)));
         #endif
         previous->size += GET_BLOCK_LENGTH(p);
-
-        *GET_PREV_TAG(NEXT_BLOCK(p)) = previous->size;
+        printf("So far no problem\n");
+        *(size_t *)GET_PREV_TAG(NEXT_BLOCK(p)) = previous->size;
+        printf("So far no problem\n");
         previous->next = p->next;
+        printf("So far no problem\n");
         previous->next->prev = previous;
+        printf("So far no problem\n");
         return 1;
     }
     else {
