@@ -266,9 +266,9 @@ void display_memory()
         size_t size1 = GET_BLOCK_LENGTH(p);
         size_t size2 = GET_PREV_BLOCK_LENGTH(NEXT_BLOCK(p));
         if (size1 == size2)
-            printf("Sizes match!");
+            printf("Sizes match!\n");
         else
-            printf("Sizes do not match! size1=%d, size2=%d", size1, size2);
+            printf("Sizes do not match! size1=%d, size2=%d\n", size1, size2);
     }
     printf("************************\n\n");
 }
