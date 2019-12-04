@@ -112,6 +112,7 @@ void insert_into_list(void *p)
 
     if (free_list_root == NULL) {
         free_list_root = p;
+        return;
     }
 
     // We search for the next free block
