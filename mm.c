@@ -226,6 +226,10 @@ void coalesce(void *p)
     #endif
     while(coalesce_prev(p))
         p = PREV_BLOCK(p);
+    #ifdef DEBUG
+        printf("Coalesced\n", p);
+    #endif
+    
 }
 
 void increase_heap_size(size_t size)
