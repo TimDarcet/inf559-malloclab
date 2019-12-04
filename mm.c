@@ -137,7 +137,9 @@ void insert_into_list(void *p)
         } while (is_allocated(prev_free));
 
     }
-
+    #ifdef DEBUG
+    printf("Inserting %p, prev_free=%p, next_free=%p", p, prev_free, next_free);
+    #endif
     if (prev_free >= start_n) {
         b->prev = (free_block *)prev_free;
         ((free_block *)prev_free)->next = (free_block *)p;
