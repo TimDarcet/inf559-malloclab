@@ -183,14 +183,12 @@ int coalesce_next(free_block *p)
  */
 int coalesce_prev(free_block *p)
 {
-    printf("test\n");
     #ifdef DEBUG
     if (is_allocated(p)) {
         printf("Tried to coalesce allocated block. Exiting.");
         exit(1);
     }
     #endif
-    printf("test\n");
     // Handle this case as PREV_BLOCK is not defined there
     if (p == mem_heap_lo()) {
         #ifdef DEBUG
@@ -198,11 +196,10 @@ int coalesce_prev(free_block *p)
         #endif
         return 0;
     }
-    printf("test\n");
 
     free_block *previous = PREV_BLOCK(p);
     
-    printf("test\n");
+    printf("Previous is %p of size %d\n", previous, GET_BLOCK_LENGTH(previous));
     if (!is_allocated(previous)) {
         #ifdef DEBUG
             printf("coalesce %p (size=%d) with %p (size=%d)", p, previous, GET_BLOCK_LENGTH(p), GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
