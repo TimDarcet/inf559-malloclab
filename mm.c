@@ -191,6 +191,9 @@ int coalesce_prev(free_block *p)
     #endif
     // Handle this case as PREV_BLOCK is not defined there
     if (p == mem_heap_lo()) {
+        #ifdef DEBUG
+        printf("%p is mem_heap_lo()\n", p);
+        #endif
         return 0;
     }
 
@@ -207,6 +210,9 @@ int coalesce_prev(free_block *p)
         return 1;
     }
     else {
+        #ifdef DEBUG
+        printf("Prev is allocated, do not coalesce\n", p);
+        #endif
         return 0;
     }
 }
