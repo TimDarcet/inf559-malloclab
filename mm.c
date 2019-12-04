@@ -164,7 +164,7 @@ int coalesce_next(free_block *p)
     if (n < end_n && !is_allocated(n))
     {
         #ifdef DEBUG
-            printf("coalesce merge block %p(%d) with block %p(%d)\n", p, GET_BLOCK_LENGTH(p), n, GET_BLOCK_LENGTH(n));
+            printf("coalesce %p (size=%d) with %p(size=%d)\n", p, GET_BLOCK_LENGTH(p), n, GET_BLOCK_LENGTH(n));
         #endif
         p->size += n->size; // n->size works because the block is free
         *GET_PREV_TAG(NEXT_BLOCK(p)) = p->size;
@@ -198,7 +198,7 @@ int coalesce_prev(free_block *p)
     
     if (!is_allocated(previous)) {
         #ifdef DEBUG
-            printf("coalesce set size for block %p to %d\n", previous, GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
+            printf("coalesce %p (size=%d) with %p (size=%d)", p, previous, GET_BLOCK_LENGTH(p), GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
         #endif
         previous->size += GET_BLOCK_LENGTH(p);
         *GET_PREV_TAG(NEXT_BLOCK(p)) = previous->size;
@@ -218,11 +218,11 @@ int coalesce_prev(free_block *p)
 void coalesce(void *p)
 {
     #ifdef DEBUG
-        printf("Coalesce %p with nexts", p);
+        printf("Coalesce %p with nexts\n", p);
     #endif
     while(coalesce_next(p));
     #ifdef DEBUG
-        printf("Coalesce %p with prevs", p);
+        printf("Coalesce %p with prevs\n", p);
     #endif
     while(coalesce_prev(p))
         p = PREV_BLOCK(p);
