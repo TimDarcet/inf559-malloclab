@@ -92,7 +92,7 @@ int mm_init(void)
 //TODO: this could be a macro
 int is_allocated(void *p)
 {
-    return *(size_t *)p & 1;
+    return (*(size_t *)p) & 1;
 }
 
 /*
@@ -210,7 +210,7 @@ int coalesce_prev(free_block *p)
         previous->next->prev = previous;
         return 1;
     }
-    else {
+    else {is_allocated
         #ifdef DEBUG
         printf("Prev is allocated, do not coalesce\n", p);
         #endif
