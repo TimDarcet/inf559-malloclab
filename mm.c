@@ -202,7 +202,7 @@ int coalesce_prev(free_block *p)
     printf("Previous is %p of size %d\n", previous, GET_BLOCK_LENGTH(previous));
     if (!is_allocated(previous)) {
         #ifdef DEBUG
-            printf("coalesce %p (size=%d) with %p (size=%d)", p, previous, GET_BLOCK_LENGTH(p), GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
+            printf("coalesce %p (size=%d) with %p (size=%d)", p, GET_BLOCK_LENGTH(p), previous, GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
         #endif
         previous->size += GET_BLOCK_LENGTH(p);
         *GET_PREV_TAG(NEXT_BLOCK(p)) = previous->size;
@@ -210,7 +210,7 @@ int coalesce_prev(free_block *p)
         previous->next->prev = previous;
         return 1;
     }
-    else {is_allocated
+    else {
         #ifdef DEBUG
         printf("Prev is allocated, do not coalesce\n", p);
         #endif
@@ -234,7 +234,7 @@ void coalesce(void *p)
     while(coalesce_prev(p))
         p = PREV_BLOCK(p);
     #ifdef DEBUG
-        printf("Coalesced\n", p);
+        printf("Coalesced\n");
     #endif
     
 }
