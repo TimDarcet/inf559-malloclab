@@ -207,7 +207,7 @@ int coalesce_prev(free_block *p)
     if (!is_allocated(previous)) {
         #ifdef DEBUG
             printf("coalesce %p (size=%d) with %p (size=%d)\n", p, GET_BLOCK_LENGTH(p), previous, GET_BLOCK_LENGTH(previous));
-            printf("GET_PREV_TAG(NEXT_BLOCK(p))=%p", GET_PREV_TAG(NEXT_BLOCK(p)));
+            printf("GET_PREV_TAG(NEXT_BLOCK(p))=%p\n", GET_PREV_TAG(NEXT_BLOCK(p)));
         #endif
         previous->size += GET_BLOCK_LENGTH(p);
 
