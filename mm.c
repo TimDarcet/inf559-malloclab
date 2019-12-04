@@ -79,6 +79,7 @@ int mm_init(void)
     b->next = NULL;
     b->prev = NULL;
     b->size = mem_heapsize();
+    *GET_PREV_TAG(NEXT_BLOCK(b)) = b->size;
 
     free_list_root = (size_t *)b;
 
