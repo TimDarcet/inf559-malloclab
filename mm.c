@@ -258,17 +258,17 @@ void display_memory()
         }
         if (is_allocated(p)) {
             printf("Block at %p:     allocated of size %d\n", p, GET_BLOCK_LENGTH(p));
-            size_t size1 = GET_BLOCK_LENGTH(p);
-            size_t size2 = GET_PREV_BLOCK_LENGTH(NEXT_BLOCK(p));
-            if (size1 == size2)
-                printf("Sizes match!");
-            else
-                printf("Sizes do not match! size1=%d, size2=%d", size1, size2);
         }
         else {
             free_block *b = (free_block *)p;
             printf("Block at %p: not allocated of size %d --> next=%p, prev=%p\n", p, GET_BLOCK_LENGTH(p), b->next, b->prev);
         }
+        size_t size1 = GET_BLOCK_LENGTH(p);
+        size_t size2 = GET_PREV_BLOCK_LENGTH(NEXT_BLOCK(p));
+        if (size1 == size2)
+            printf("Sizes match!");
+        else
+            printf("Sizes do not match! size1=%d, size2=%d", size1, size2);
     }
     printf("************************\n\n");
 }
