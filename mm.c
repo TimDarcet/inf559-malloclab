@@ -153,6 +153,7 @@ int coalesce_next(free_block *p)
 {
     #ifdef DEBUG
     if (is_allocated(p)) {
+        printf("Tried to coalesce allocated block. Exiting.");
         exit(1);
     }
     #endif
@@ -165,6 +166,7 @@ int coalesce_next(free_block *p)
             printf("coalesce merge block %p(%d) with block %p(%d)\n", p, GET_BLOCK_LENGTH(p), n, GET_BLOCK_LENGTH(n));
         #endif
         p->size += n->size; // n->size works because the block is free
+        *GET_PREV_TAG(NEXT_BLOCK(p)) = p->size;
         p->next = n->next;
         p->next->prev = p;
         return 1;
@@ -182,6 +184,7 @@ int coalesce_prev(free_block *p)
 {
     #ifdef DEBUG
     if (is_allocated(p)) {
+        printf("Tried to coalesce allocated block. Exiting.");
         exit(1);
     }
     #endif
@@ -197,6 +200,7 @@ int coalesce_prev(free_block *p)
             printf("coalesce set size for block %p to %d\n", previous, GET_BLOCK_LENGTH(p) + GET_BLOCK_LENGTH(previous));
         #endif
         previous->size += GET_BLOCK_LENGTH(p);
+        *GET_PREV_TAG(NEXT_BLOCK(p)) = previous->size;
         previous->next = p->next;
         previous->next->prev = previous;
         return 1;
@@ -206,11 +210,15 @@ int coalesce_prev(free_block *p)
     }
 }
 
+/*
+ * Coalesce block at p on both sides
+ * Suppose free block is already nicely in the free list
+ */
 void coalesce(void *p)
 {
     while(coalesce_next(p));
-    while(coalesce_prev(p));
-    insert_into_list(p);
+    while(coalesce_prev(p))
+        p = PREV_BLOCK(p);
 }
 
 void increase_heap_size(size_t size)
@@ -222,10 +230,13 @@ void increase_heap_size(size_t size)
     // Increase
     free_block *p = mem_sbrk(size);
     p->size = size;
+    *GET_PREV_TAG(NEXT_BLOCK(p)) = p->size; 
 
     #ifdef DEBUG
         printf("Added block at %p(%d)\n", p, GET_BLOCK_LENGTH(p));
     #endif
+    //TODO: This could be optimized using the fact that we insert at the end of the heap
+    insert_into_list(p);
     coalesce(p);
 }
 
@@ -241,11 +252,18 @@ void display_memory()
     for (; p < end_p; p = NEXT_BLOCK(p))
     {
         if (GET_BLOCK_LENGTH(p) == 0) {
-            fprintf(stderr, "Empy block found at %p, stopping display\n", p);
+            fprintf(stderr, "Empty block found at %p, stopping display\n", p);
             break;
         }
-        if (is_allocated(p))
+        if (is_allocated(p)) {
             printf("Block at %p:     allocated of size %d\n", p, GET_BLOCK_LENGTH(p));
+            size_t size1 = GET_BLOCK_LENGTH(p);
+            size_t size2 = GET_PREV_BLOCK_LENGTH(NEXT_BLOCK(p));
+            if (size1 == size2)
+                printf("Sizes match!");
+            else
+                printf("Sizes do not match! size1=%d, size2=%d", size1, size2);
+        }
         else {
             free_block *b = (free_block *)p;
             printf("Block at %p: not allocated of size %d --> next=%p, prev=%p\n", p, GET_BLOCK_LENGTH(p), b->next, b->prev);
@@ -278,9 +296,9 @@ void *mm_malloc(size_t user_size)
             printf("Seeing block %p with length %d (allocated: %d)\n", p, GET_BLOCK_LENGTH(p), is_allocated(p));
         #endif
         if (GET_BLOCK_LENGTH(p) == 0) {
-            fprintf(stderr, "Empy block found at %p, exiting\n", p);
+            fprintf(stderr, "Empty block found at %p, exiting\n", p);
             display_memory();
-            fprintf(stderr, "Empy block found at %p, exiting\n", p);
+            fprintf(stderr, "Empty block found at %p, exiting\n", p);
             exit(1);
         }
         
@@ -300,12 +318,14 @@ void *mm_malloc(size_t user_size)
     {
         size_t old_size = GET_BLOCK_LENGTH(p);
         *(size_t *)p = tag;
+        *GET_PREV_TAG(NEXT_BLOCK(p)) = newsize;
 
         if (old_size != newsize)
         {
             size_t *next_p = NEXT_BLOCK(p);
             // Set size to the rest of the block, and leave it unallocated
             *(size_t *)next_p = ALIGN(old_size - newsize);
+            *GET_PREV_TAG(NEXT_BLOCK(next_p)) = ALIGN(old_size - newsize);
         }
 
         #ifdef DEBUG
@@ -326,6 +346,7 @@ void mm_free(void *ptr)
     size_t *p = GET_PREV_TAG(ptr);
     *p = *p & -2;
 
+    insert_into_list(p);
     coalesce(p);
 
     #ifdef DEBUG
@@ -334,6 +355,7 @@ void mm_free(void *ptr)
         display_memory();
     #endif
 }
+
 
 /*
  * mm_realloc - realloc using implicit simply linked list.
@@ -353,6 +375,7 @@ void *mm_realloc(void *ptr, size_t size)
     #ifdef DEBUG
         display_memory();
     #endif
+
     size_t u_new_size = size;
     size_t new_size = REAL_SIZE_FROM_USER(size);
     void *u_old_p = ptr;
@@ -362,6 +385,7 @@ void *mm_realloc(void *ptr, size_t size)
     #ifdef DEBUG
         printf("User want to realloc %p(%d) to size %d\n", old_p, old_size, new_size);
     #endif
+
     if (old_size == new_size)
         return ptr;
     if (old_size == 0)
@@ -372,20 +396,23 @@ void *mm_realloc(void *ptr, size_t size)
         #ifdef DEBUG
             printf("The old block is large enough\n");
         #endif
+    
         // Set the old block (it is allocated)
         *(size_t *)old_p = new_size | 1;
-
         // 'newnext' variables correspond to the free block which has just been created
         void *newnext_p = NEXT_BLOCK(old_p);
         size_t newnext_size = old_size - new_size;
         // The 'allocated' bit is purposefully not set
         *(size_t *)newnext_p = newnext_size;
+        // Set boundary tag
+        *GET_PREV_TAG(NEXT_BLOCK(newnext_p)) = newnext_size;
+        insert_into_list(newnext_p);
         coalesce_next(newnext_p);
         return u_old_p;
     }
     void *oldnext_p = NEXT_BLOCK(old_p);
     size_t oldnext_size = GET_BLOCK_LENGTH(oldnext_p);
-    
+
     // If there is enough space in the old block + the next free block, use it 
     if (!is_allocated(oldnext_p) && oldnext_size + old_size >= new_size) {
         *(size_t *)old_p = new_size | 1; // It is allocated
@@ -395,6 +422,9 @@ void *mm_realloc(void *ptr, size_t size)
         size_t newnext_size = old_size + oldnext_size - new_size;
         // Set its value (it is unallocated)
         *(size_t *)newnext_p = newnext_size;
+        // Set boundary tag
+        *GET_PREV_TAG(NEXT_BLOCK(newnext_p)) = newnext_size;
+        insert_into_list(newnext_p);
         return u_old_p;
     }
 
