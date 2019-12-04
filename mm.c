@@ -217,7 +217,13 @@ int coalesce_prev(free_block *p)
  */
 void coalesce(void *p)
 {
+    #ifdef DEBUG
+        printf("Coalesce %p with nexts", p);
+    #endif
     while(coalesce_next(p));
+    #ifdef DEBUG
+        printf("Coalesce %p with prevs", p);
+    #endif
     while(coalesce_prev(p))
         p = PREV_BLOCK(p);
 }
