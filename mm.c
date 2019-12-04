@@ -110,6 +110,10 @@ void insert_into_list(void *p)
     size_t *next_free;
     size_t *prev_free = NULL;
 
+    if (free_list_root == NULL) {
+        free_list_root = p;
+    }
+
     // We search for the next free block
     for (next_free = NEXT_BLOCK(p);
          next_free < end_n && is_allocated(next_free);
@@ -311,8 +315,8 @@ void display_memory()
         }
         size_t size1 = GET_BLOCK_LENGTH(p);
         size_t size2 = GET_PREV_BLOCK_LENGTH(NEXT_BLOCK(p));
-        if (size1 == size2)
-            printf("Sizes match!\n");
+        if (size1 == size2);
+            // printf("Sizes match!\n");
         else
             printf("Sizes do not match! size1=%d, size2=%d\n", size1, size2);
     }
@@ -330,7 +334,7 @@ void *mm_malloc(size_t user_size)
 
     #ifdef DEBUG
         display_memory();
-        printf("User want to malloc %d...\n", user_size);
+        printf("User wants to malloc %d...\n", user_size);
     #endif
 
     free_block *p;
