@@ -152,6 +152,21 @@ void insert_into_list(void *p)
     }
 }
 
+/*
+ * This function removes p from the explicit double-linked list
+ */
+void remove_from_list(void *p)
+{
+    free_block *b = (free_block *)p;
+    if (b->prev != NULL)
+        b->prev->next = b->next;
+    if (b->next != NULL)
+        b->next->prev = b->prev;
+    #ifdef DEBUG
+        printf("Removing %p from the free list\n", p);
+    #endif
+}
+
 
 int coalesce_next(free_block *p)
 {
@@ -202,8 +217,6 @@ int coalesce_prev(free_block *p)
 
     free_block *previous = PREV_BLOCK(p);
     
-    printf("Previous is %p of size %d\n", previous, GET_BLOCK_LENGTH(previous));
-    printf("!is_allocated: %d\n", !is_allocated(previous));
     if (!is_allocated(previous)) {
         #ifdef DEBUG
             printf("coalesce %p (size=%d) with %p (size=%d)\n", p, GET_BLOCK_LENGTH(p), previous, GET_BLOCK_LENGTH(previous));
@@ -347,6 +360,7 @@ void *mm_malloc(size_t user_size)
         size_t old_size = GET_BLOCK_LENGTH(p);
         *(size_t *)p = tag;
         *GET_PREV_TAG(NEXT_BLOCK(p)) = newsize;
+        remove_from_list(p);
 
         if (old_size != newsize)
         {
@@ -434,6 +448,7 @@ void *mm_realloc(void *ptr, size_t size)
         *(size_t *)newnext_p = newnext_size;
         // Set boundary tag
         *GET_PREV_TAG(NEXT_BLOCK(newnext_p)) = newnext_size;
+        remove_from_list(old_p);
         insert_into_list(newnext_p);
         coalesce_next(newnext_p);
         return u_old_p;
@@ -452,6 +467,7 @@ void *mm_realloc(void *ptr, size_t size)
         *(size_t *)newnext_p = newnext_size;
         // Set boundary tag
         *GET_PREV_TAG(NEXT_BLOCK(newnext_p)) = newnext_size;
+        remove_from_list(old_p);
         insert_into_list(newnext_p);
         return u_old_p;
     }
