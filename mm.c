@@ -253,6 +253,7 @@ void increase_heap_size(size_t size)
 
     #ifdef DEBUG
         printf("Added block at %p(%d)\n", p, GET_BLOCK_LENGTH(p));
+        display_memory();
     #endif
     //TODO: This could be optimized using the fact that we insert at the end of the heap
     insert_into_list(p);
